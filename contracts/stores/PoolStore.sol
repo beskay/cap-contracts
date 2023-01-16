@@ -9,6 +9,8 @@ contract PoolStore is Roles {
 
 	using SafeERC20 for IERC20;
 
+	uint256 public feeShare = 500;
+
 	uint256 public bufferPayoutPeriod = 7 days;
 
 	mapping(address => uint256) private clpSupply; // asset => clp supply
@@ -24,6 +26,10 @@ contract PoolStore is Roles {
     constructor(RoleStore rs) Roles(rs) {}
 
     // Setters
+
+    function setFeeShare(uint256 bps) external onlyGov {
+    	feeShare = bps;
+    }
 
     function setBufferPayoutPeriod(uint256 time) external onlyGov {
 		bufferPayoutPeriod = time;

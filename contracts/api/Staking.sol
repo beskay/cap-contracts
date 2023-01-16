@@ -50,7 +50,6 @@ contract Staking is Roles {
 
 	function stake(uint256 amount) external {
 
-		require(!DS.getBool("isStakingPaused"), "!paused");
 		require(amount > 0, "!amount");
 
 		updateRewards(msg.sender);
@@ -69,7 +68,6 @@ contract Staking is Roles {
 
 	function unstake(uint256 amount) external {
 
-		require(!DS.getBool("isUnstakingPaused"), "!paused");
 		require(amount > 0, "!amount");
 
 		// Set to max if above max

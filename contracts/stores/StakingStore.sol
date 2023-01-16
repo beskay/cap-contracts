@@ -7,7 +7,7 @@ contract StakingStore is Roles {
 	
     uint256 public constant UNIT = 10**18;
 
-	uint256 public feeShare = 5000;
+	uint256 public feeShare = 500;
 
     mapping(address => uint256) private balances; // account => cap amount
     uint256 totalSupply; // cap staked

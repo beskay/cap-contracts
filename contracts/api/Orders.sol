@@ -9,10 +9,7 @@ import "../stores/AssetStore.sol";
 import "../stores/DataStore.sol";
 import "../stores/FundStore.sol";
 import "../stores/OrderStore.sol";
-import "../stores/PositionStore.sol";
 import "../stores/MarketStore.sol";
-import "../stores/RebateStore.sol";
-import "../stores/ReferralStore.sol";
 import "../stores/RiskStore.sol";
 
 import "../utils/Chainlink.sol";
@@ -57,9 +54,6 @@ contract Orders is Roles {
 	FundStore public fundStore;
 	MarketStore public marketStore;
 	OrderStore public orderStore;
-	PositionStore public positionStore;
-	RebateStore public rebateStore;
-	ReferralStore public referralStore;
 	RiskStore public riskStore;
 
 	Chainlink public chainlink;
@@ -73,9 +67,6 @@ contract Orders is Roles {
 		fundStore = FundStore(payable(DS.getAddress('FundStore')));
 		marketStore = MarketStore(DS.getAddress('MarketStore'));
 		orderStore = OrderStore(DS.getAddress('OrderStore'));
-		positionStore = PositionStore(DS.getAddress('PositionStore'));
-		rebateStore = RebateStore(DS.getAddress('RebateStore'));
-		referralStore = ReferralStore(DS.getAddress('ReferralStore'));
 		riskStore = RiskStore(DS.getAddress('RiskStore'));
 		chainlink = Chainlink(DS.getAddress('Chainlink'));
 	}
@@ -88,12 +79,9 @@ contract Orders is Roles {
 	function submitOrder(
 		OrderStore.Order memory params, 
 		uint256 tpPrice,
-		uint256 slPrice,
-		string memory refCode
+		uint256 slPrice
 	) external payable ifNotPaused {
 
-		referralStore.setReferrer(refCode);
-		
 		uint256 vc1;
 		uint256 vc2;
 		uint256 vc3;
@@ -183,11 +171,6 @@ contract Orders is Roles {
 		require(market.maxLeverage > 0, "!market-exists");
 		require(!market.isClosed, "!market-closed");
 
-		// console.log(4);
-
-		require(!riskStore.isAddressBanned(user), "!banned-user");
-		require(!riskStore.isAddressBannedForMarket(user, params.market), "!banned-user-market");
-
 		// console.log(5);
 
 		if (params.expiry > 0) {
@@ -207,10 +190,7 @@ contract Orders is Roles {
 
 		// console.log(7);
 
-		uint256 originalFee = params.size * market.fee / BPS_DIVIDER;
-		uint256 feeRebateBps = rebateStore.getUserRebate(user);
-		uint256 referralRebateBps = referralStore.getRebateForUser(user);
-		uint256 feeWithRebate = originalFee * (BPS_DIVIDER - feeRebateBps - referralRebateBps) / BPS_DIVIDER;
+		uint256 fee = params.size * market.fee / BPS_DIVIDER;
 		uint256 valueConsumed;
 
 		if (params.isReduceOnly) {
@@ -218,7 +198,6 @@ contract Orders is Roles {
 			// Existing position is checked on execution so TP/SL can be submitted as reduce-only alongside a non-executed order
 			// In this case, valueConsumed is zero as margin is zero and fee is taken from the order's margin 
 		} else {
-			require(!marketStore.isGlobalReduceOnly(), "!global-reduce-only");
 			require(!market.isReduceOnly, "!market-reduce-only");
 			require(params.margin > 0, "!margin");
 
@@ -232,7 +211,7 @@ contract Orders is Roles {
 			// console.log(72);
 
 			// Transfer fee and margin to store
-			valueConsumed = params.margin + feeWithRebate;
+			valueConsumed = params.margin + fee;
 
 			if (params.asset == address(0)) {
 				fundStore.transferIn{value: valueConsumed}(params.asset, user, valueConsumed);
@@ -248,7 +227,7 @@ contract Orders is Roles {
 		// Add order to store
 
 		params.user = user;
-		params.fee = feeWithRebate;
+		params.fee = fee;
 		params.timestamp = block.timestamp;
 
 		uint256 orderId = orderStore.add(params);
@@ -291,16 +270,7 @@ contract Orders is Roles {
 		}
 	}
 
-	function cancelOrderGov(uint256 orderId) external onlyGov {
-		_cancelOrder(orderId, "by-gov");
-	}
-
-	// Can be used for expired orders / cleaning
-	function cancelOrdersGov(uint256[] calldata orderIds) external onlyGov {
-		for (uint256 i = 0; i < orderIds.length; i++) {
-			_cancelOrder(orderIds[i], "by-gov-clearing");
-		}
-	}
+	// TODO: cancel expired orders that anyone can call
 
 	function cancelOrder(
 		uint256 orderId, 

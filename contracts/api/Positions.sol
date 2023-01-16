@@ -86,20 +86,11 @@ contract Positions is Roles {
 	    address indexed asset,
 	    string market,
 	    uint256 fee,
-	    uint256 originalFee,
 	    uint256 poolFee,
 	    uint256 stakingFee,
-	    uint256 referrerFee,
+	    uint256 treasuryFee,
 	    uint256 oracleFee,
 	    bool isLiquidation
-	);
-
-	event ReferrerPaid(
-		address indexed referrer,
-		address indexed asset,
-		uint256 referrerFee,
-		address referrerUser,
-		uint256 referrerShareBps
 	);
 
 	DataStore public DS;
@@ -111,8 +102,6 @@ contract Positions is Roles {
 	OrderStore public orderStore;
 	PoolStore public poolStore;
 	PositionStore public positionStore;
-	RebateStore public rebateStore;
-	ReferralStore public referralStore;
 	RiskStore public riskStore;
 	StakingStore public stakingStore;
 
@@ -133,8 +122,6 @@ contract Positions is Roles {
 		orderStore = OrderStore(DS.getAddress('OrderStore'));
 		poolStore = PoolStore(DS.getAddress('PoolStore'));
 		positionStore = PositionStore(DS.getAddress('PositionStore'));
-		rebateStore = RebateStore(DS.getAddress('RebateStore'));
-		referralStore = ReferralStore(DS.getAddress('ReferralStore'));
 		riskStore = RiskStore(DS.getAddress('RiskStore'));
 		stakingStore = StakingStore(DS.getAddress('StakingStore'));
 		funding = Funding(DS.getAddress('Funding'));
@@ -164,9 +151,6 @@ contract Positions is Roles {
 
 		// console.log(3);
 
-		uint256 originalFee = order.size * market.fee / BPS_DIVIDER;
-		uint256 feeWithRebate = order.fee;
-
 		// console.log(4);
 
 		creditFee(
@@ -174,8 +158,7 @@ contract Positions is Roles {
 			order.user, 
 			order.asset, 
 			order.market, 
-			feeWithRebate, 
-			originalFee,
+			order.fee, 
 			false
 		);
 
@@ -209,16 +192,6 @@ contract Positions is Roles {
 
 		positionStore.addOrUpdate(position);
 
-		// console.log(7);
-
-		// console.log(8);
-
-		rebateStore.incrementUserVolume(
-			order.user, 
-			market.fee,
-			_getUsdAmount(order.asset, order.size)
-		);
-
 		// console.log(9);
 
 		orderStore.remove(orderId);
@@ -238,7 +211,7 @@ contract Positions is Roles {
 			position.size,
 			position.price,
 			position.fundingTracker,
-			feeWithRebate
+			order.fee
 		);
 
 	}
@@ -272,20 +245,19 @@ contract Positions is Roles {
 		}
 
 		uint256 originalFee = market.fee * executedOrderSize / BPS_DIVIDER;
-		uint256 feeWithRebate = order.fee * executedOrderSize / order.size;
+		uint256 fee = order.fee * executedOrderSize / order.size;
 
 		creditFee(
 			orderId,
 			order.user, 
 			order.asset, 
 			order.market, 
-			feeWithRebate, 
-			originalFee, 
+			fee, 
 			false
 		);
 
 		// If an order is reduce-only, fee is taken from the position's margin.
-		uint256 feeToPay = order.isReduceOnly ? feeWithRebate : 0;
+		uint256 feeToPay = order.isReduceOnly ? fee : 0;
 
 		// Funding update
 
@@ -323,8 +295,7 @@ contract Positions is Roles {
 			position.fundingTracker = fundingStore.getFundingTracker(order.asset, order.market);
 		}
 
-		riskStore.checkMarketRisk(order.market, order.asset, pnl);
-		riskStore.checkPoolRisk(order.asset, pnl);
+		riskStore.checkPoolDrawdown(order.asset, pnl);
 
 		if (pnl < 0) {
 			uint256 absPnl = uint256(-1 * pnl);
@@ -356,14 +327,6 @@ contract Positions is Roles {
 
 		fundStore.transferOut(order.asset, order.user, amountToReturnToUser);
 
-		rebateStore.incrementUserVolume(
-			order.user, 
-			market.fee,
-			_getUsdAmount(order.asset, executedOrderSize)
-		);
-
-		
-
 		if (position.size == 0) {
 			positionStore.remove(order.user, order.asset, order.market);
 		} else {
@@ -385,7 +348,7 @@ contract Positions is Roles {
 			position.size,
 			position.price,
 			position.fundingTracker,
-			feeWithRebate,
+			feeToPay,
 			pnl,
 			fundingFee
 		);
@@ -419,47 +382,74 @@ contract Positions is Roles {
 
 	}
 
-	function flushPosition(
-		address user, 
-		address asset, 
-		string memory market
-	) external onlyGov {
 
-		PositionStore.Position memory position = positionStore.get(user, asset, market);
-		require(position.size > 0, "!position");
+	function closePositionWithoutProfit(address _asset, string memory _market) external {
+	    
+	    address user = msg.sender;
 
-		// flush a user out of a position, can be used after they are blocked, simply close their position and return their margin without profits
+	    PositionStore.Position memory position = positionStore.get(user, _asset, _market);
 
-		fundStore.transferOut(asset, user, position.margin);
-		
-		positionStore.decrementOI(
-			asset, 
-			market, 
+	    require(position.size > 0, "!position");
+
+	    MarketStore.Market memory market = marketStore.get(_market);
+
+	    positionStore.decrementOI(
+			_asset, 
+			_market, 
 			position.size, 
 			position.isLong
 		);
-		
-		positionStore.remove(user, asset, market);
 
-		funding.updateFundingTracker(asset, market);
+		funding.updateFundingTracker(_asset, _market);
 
-		emit PositionDecreased(
-			0,
-			user,
-			asset,
-			market,
-			!position.isLong,
-			0,
-			0,
-			0,
-			position.margin,
-			position.size,
-			position.price,
-			position.fundingTracker,
-			0,
-			0,
-			0
+		uint256 price = chainlink.getPrice(market.chainlinkFeed);
+		require(price > 0, "!price");
+
+		(int256 pnl, int256 fundingFee) = getPnL(
+			_asset, 
+			_market, 
+			position.isLong, 
+			price, 
+			position.price, 
+			position.size, 
+			position.fundingTracker
 		);
+
+	    // Only profitable positions can be closed this way
+	    require(pnl >= 0, "!pnl-positive");
+
+	    uint256 fee = position.size * market.fee / BPS_DIVIDER;
+
+	    creditFee(
+	    	0,
+	    	user, 
+	    	_asset, 
+	    	_market, 
+	    	fee, 
+	    	false
+	    );
+
+	    fundStore.transferOut(_asset, user, position.margin - fee);
+
+	    positionStore.remove(user, _asset, _market);
+
+	    emit PositionDecreased(
+	    	0,
+	    	user,
+	    	_asset,
+	    	_market,
+	    	!position.isLong,
+	    	position.size,
+	    	position.margin,
+	    	price,
+	    	position.margin,
+	    	position.size,
+	    	position.price,
+	    	position.fundingTracker,
+	    	fee,
+	    	0,
+	    	0
+	    );
 
 	}
 
@@ -563,24 +553,25 @@ contract Positions is Roles {
 		address asset,
 		string memory market,
 		uint256 fee,
-		uint256 originalFee,
 		bool isLiquidation
 	) public onlyContract {
 
-		// Credit fee to poolers and stakers
+		// Credit fee to oracle, pool, stakers, treasury
 
 		if (fee == 0) return;
 
-		uint256 referrerFee = _payReferrer(user, asset, fee);
 		uint256 oracleFee = _fundOracle(asset, fee);
 
-		uint256 netFee = fee - referrerFee - oracleFee;
+		uint256 netFee = fee - oracleFee;
 
 		uint256 feeToStaking = netFee * stakingStore.feeShare() / BPS_DIVIDER;
-		uint256 feeToPool = netFee - feeToStaking;
+		uint256 feeToPool = netFee * poolStore.feeShare() / BPS_DIVIDER;
+		uint256 feeToTreasury = netFee - feeToStaking - feeToPool;
 
 		poolStore.incrementBalance(asset, feeToPool);
 		stakingStore.incrementPendingReward(asset, feeToStaking);
+
+		fundStore.transferOut(asset, DS.getAddress('treasury'), feeToTreasury);
 
 		emit FeePaid(
 			orderId,
@@ -588,10 +579,9 @@ contract Positions is Roles {
 			asset, 
 			market,
 			fee, // paid by user
-			originalFee,
 			feeToPool,
 			feeToStaking,
-			referrerFee,
+			feeToTreasury,
 			oracleFee,
 			isLiquidation
 		);
@@ -617,7 +607,7 @@ contract Positions is Roles {
 		}
 
 		int256 currentFundingTracker = fundingStore.getFundingTracker(asset, market);
-		fundingFee = int256(size) * (currentFundingTracker - fundingTracker) / int256(BPS_DIVIDER);
+		fundingFee = int256(size) * (currentFundingTracker - fundingTracker) / (int256(BPS_DIVIDER) * int256(UNIT)); // funding tracker is in UNIT * bps
 
 		if (isLong) {
 			pnl -= fundingFee; // positive = longs pay, negative = longs receive
@@ -629,45 +619,6 @@ contract Positions is Roles {
 
 	}
 
-
-	// Utils
-
-	function _getUsdAmount(
-		address asset, 
-		uint256 amount
-	) internal view returns(uint256) {
-		AssetStore.Asset memory assetInfo = assetStore.get(asset);
-		uint256 chainlinkPrice = chainlink.getPrice(assetInfo.chainlinkFeed);
-		uint256 decimals = 18;
-		if (asset != address(0)) {
-			decimals = IERC20Metadata(asset).decimals();
-		}
-		// amount is in the asset's decimals, convert to 18. Price is 18 decimals
-		return amount * chainlinkPrice / 10**decimals;
-	}
-
-	function _payReferrer(
-		address user,
-		address asset,
-		uint256 amount 
-	) internal returns(uint256) {
-		// Transfer fee portion to referrer if any
-		address referrer = referralStore.getReferredBy(user);
-		uint256 referrerFee;
-		if (referrer != address(0)) {
-			uint256 referrerShareBps = referralStore.getReferrerShareForUser(user);
-			referrerFee = amount * referrerShareBps / BPS_DIVIDER;
-			fundStore.transferOut(asset, referrer, referrerFee);
-			emit ReferrerPaid(
-				referrer,
-				asset,
-				referrerFee,
-				user,
-				referrerShareBps
-			);
-		}
-		return referrerFee;
-	}
 
 	function _fundOracle(address asset, uint256 amount) internal returns(uint256) {
 		// Transfer fee portion to oracle if any

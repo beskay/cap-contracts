@@ -157,7 +157,6 @@ contract Processor is Roles {
 
 		// Bound provided price with chainlink
 		if (!_boundPriceWithChainlink(market.maxDeviation, chainlinkPrice, price)) {
-			// TODO: not ideal?
 			return (true, "!chainlink-deviation"); // returns true so as not to trigger order cancellation
 		}
 
@@ -320,7 +319,6 @@ contract Processor is Roles {
 				asset, 
 				market, 
 				fee, 
-				fee,
 				true
 			);
 

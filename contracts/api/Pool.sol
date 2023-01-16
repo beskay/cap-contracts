@@ -146,7 +146,6 @@ contract Pool is Roles {
 
 		//console.log(1);
 
-		require(!DS.getBool("areDepositsPaused"), "!paused");
 		//console.log(2);
 		require(amount > 0, "!amount");
 		//console.log(3);
@@ -173,6 +172,8 @@ contract Pool is Roles {
         uint256 clpAmount = balance == 0 || clpSupply == 0 ? amount : amount * clpSupply / balance;
 
         //console.log(8);
+        
+        // TODO: can be merged with incrementUserClpBalance - like minting CLP
 		poolStore.incrementClpSupply(asset, clpAmount);
 		//console.log(9);
 		poolStore.incrementUserClpBalance(asset, user, clpAmount);
@@ -192,7 +193,6 @@ contract Pool is Roles {
 
 	function withdraw(address asset, uint256 amount) public {
 
-		require(!DS.getBool("areWithdrawalsPaused"), "!paused");
 		require(amount > 0, "!amount");
 		require(assetStore.isSupported(asset), "!asset");
 
