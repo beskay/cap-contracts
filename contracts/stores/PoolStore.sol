@@ -132,6 +132,15 @@ contract PoolStore is Roles {
 		return bufferBalances[asset];
 	}
 
+	function getBufferBalances(address[] calldata _assets) external view returns(uint256 memory _balances) {
+		uint256 length = _assets.length;
+		_balances = new uint256[](length);
+		for (uint256 i = 0; i < length; i++) {
+			_balances[i] = bufferBalances[_assets[i]];
+		}
+		return _balances;
+	}
+
 	function getLastPaid(address asset) external view returns(uint256) {
 		return lastPaid[asset];
 	}
