@@ -13,8 +13,6 @@ import "../stores/MarketStore.sol";
 import "../stores/OrderStore.sol";
 import "../stores/PoolStore.sol";
 import "../stores/PositionStore.sol";
-import "../stores/RebateStore.sol";
-import "../stores/ReferralStore.sol";
 import "../stores/RiskStore.sol";
 import "../stores/StakingStore.sol";
 

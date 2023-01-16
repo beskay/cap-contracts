@@ -102,18 +102,6 @@ exports.setup = async function() {
   await positionStore.deployed();
   console.log(`PositionStore deployed to ${positionStore.address}.`);
 
-  // RebateStore
-  const RebateStore = await ethers.getContractFactory("RebateStore");
-  const rebateStore = await RebateStore.deploy(roleStore.address, dataStore.address);
-  await rebateStore.deployed();
-  console.log(`RebateStore deployed to ${rebateStore.address}.`);
-
-  // ReferralStore
-  const ReferralStore = await ethers.getContractFactory("ReferralStore");
-  const referralStore = await ReferralStore.deploy(roleStore.address);
-  await referralStore.deployed();
-  console.log(`ReferralStore deployed to ${referralStore.address}.`);
-
   // RiskStore
   const RiskStore = await ethers.getContractFactory("RiskStore");
   const riskStore = await RiskStore.deploy(roleStore.address, dataStore.address);
@@ -176,8 +164,6 @@ exports.setup = async function() {
   await dataStore.setAddress("OrderStore", orderStore.address, true);
   await dataStore.setAddress("PoolStore", poolStore.address, true);
   await dataStore.setAddress("PositionStore", positionStore.address, true);
-  await dataStore.setAddress("RebateStore", rebateStore.address, true);
-  await dataStore.setAddress("ReferralStore", referralStore.address, true);
   await dataStore.setAddress("RiskStore", riskStore.address, true);
   await dataStore.setAddress("StakingStore", stakingStore.address, true);
   await dataStore.setAddress("Funding", funding.address, true);
