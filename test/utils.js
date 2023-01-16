@@ -14,6 +14,7 @@ exports.PRODUCTS = {
     chainlinkFeed: this.ADDRESS_ZERO,
     fee: 10, // 0.1%
     liqThreshold: 9900,
+    fundingFactor: 10000,
     allowChainlinkExecution: true,
     isClosed: false,
     isReduceOnly: false
@@ -26,6 +27,7 @@ exports.PRODUCTS = {
     fee: 10,
     chainlinkFeed: this.ADDRESS_ZERO,
     liqThreshold: 9900,
+    fundingFactor: 10000,
     allowChainlinkExecution: true,
     isClosed: false,
     isReduceOnly: false
@@ -38,6 +40,7 @@ exports.PRODUCTS = {
     fee: 3,
     chainlinkFeed: this.ADDRESS_ZERO,
     liqThreshold: 9900,
+    fundingFactor: 10000,
     allowChainlinkExecution: true,
     isClosed: false,
     isReduceOnly: false
@@ -50,22 +53,11 @@ exports.PRODUCTS = {
     fee: 10,
     chainlinkFeed: this.ADDRESS_ZERO,
     liqThreshold: 9500,
+    fundingFactor: 10000,
     allowChainlinkExecution: true,
     isClosed: false,
     isReduceOnly: false
-  },
-  // 'SPX500': {
-  //   name: 'S&P 500',
-  //   category: 'indices',
-  //   maxLeverage: 20,
-  //   maxDeviation: 10000, // TEST on local only
-  //   fee: 10,
-  //   chainlinkFeed: this.ADDRESS_ZERO,
-  //   liqThreshold: 9500,
-  //   allowChainlinkExecution: true,
-  //   isClosed: false,
-  //   isReduceOnly: false
-  // }
+  }
 };
 
 // ethers.utils.parseUnits(num, decimals); eth => wei

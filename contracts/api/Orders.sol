@@ -270,8 +270,6 @@ contract Orders is Roles {
 		}
 	}
 
-	// TODO: cancel expired orders that anyone can call
-
 	function cancelOrder(
 		uint256 orderId, 
 		string memory reason
