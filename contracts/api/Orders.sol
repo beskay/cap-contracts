@@ -323,8 +323,8 @@ contract Orders is Roles {
 		OrderStore.Order memory order = orderStore.get(orderId);
 		if (order.size == 0) return;
 
-		fundStore.transferOut(order.asset, order.user, order.margin + order.fee);
 		orderStore.remove(orderId);
+		fundStore.transferOut(order.asset, order.user, order.margin + order.fee);
 		
 		emit OrderCancelled(
 			orderId, 

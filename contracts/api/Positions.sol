@@ -354,7 +354,6 @@ contract Positions is Roles {
 			amountToReturnToUser += executedPositionMargin - feeToPay;
 		}
 
-		fundStore.transferOut(order.asset, order.user, amountToReturnToUser);
 
 		rebateStore.incrementUserVolume(
 			order.user, 
@@ -371,6 +370,9 @@ contract Positions is Roles {
 		}
 
 		orderStore.remove(orderId);
+
+		fundStore.transferOut(order.asset, order.user, amountToReturnToUser);
+
 
 		emit PositionDecreased(
 			orderId,
@@ -430,7 +432,6 @@ contract Positions is Roles {
 
 		// flush a user out of a position, can be used after they are blocked, simply close their position and return their margin without profits
 
-		fundStore.transferOut(asset, user, position.margin);
 		
 		positionStore.decrementOI(
 			asset, 
@@ -442,6 +443,8 @@ contract Positions is Roles {
 		positionStore.remove(user, asset, market);
 
 		funding.updateFundingTracker(asset, market);
+
+		fundStore.transferOut(asset, user, position.margin);
 
 		emit PositionDecreased(
 			0,
