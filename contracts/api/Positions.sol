@@ -323,8 +323,6 @@ contract Positions is Roles {
 			amountToReturnToUser += executedPositionMargin - feeToPay;
 		}
 
-		fundStore.transferOut(order.asset, order.user, amountToReturnToUser);
-
 		if (position.size == 0) {
 			positionStore.remove(order.user, order.asset, order.market);
 		} else {
@@ -332,6 +330,8 @@ contract Positions is Roles {
 		}
 
 		orderStore.remove(orderId);
+
+		fundStore.transferOut(order.asset, order.user, amountToReturnToUser);
 
 		emit PositionDecreased(
 			orderId,
@@ -427,9 +427,9 @@ contract Positions is Roles {
 	    	false
 	    );
 
-	    fundStore.transferOut(_asset, user, position.margin - fee);
-
 	    positionStore.remove(user, _asset, _market);
+		
+	    fundStore.transferOut(_asset, user, position.margin - fee);
 
 	    emit PositionDecreased(
 	    	0,

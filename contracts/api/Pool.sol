@@ -79,22 +79,22 @@ contract Pool is Roles {
 
 		uint256 lastPaid = poolStore.getLastPaid(asset);
 		uint256 _now = block.timestamp;
+        uint256 amountToSendPool;
 
 		if (lastPaid == 0) {
 			poolStore.setLastPaid(asset, _now);
-			return;
+		} else {
+			uint256 bufferBalance = poolStore.getBufferBalance(asset);
+			uint256 bufferPayoutPeriod = poolStore.bufferPayoutPeriod();
+
+			amountToSendPool = bufferBalance * (block.timestamp - lastPaid) / bufferPayoutPeriod;
+			
+			if (amountToSendPool > bufferBalance) amountToSendPool = bufferBalance;
+			
+			poolStore.incrementBalance(asset, amountToSendPool);
+			poolStore.decrementBufferBalance(asset, amountToSendPool);
+			poolStore.setLastPaid(asset, _now);
 		}
-
-		uint256 bufferBalance = poolStore.getBufferBalance(asset);
-		uint256 bufferPayoutPeriod = poolStore.bufferPayoutPeriod();
-
-		uint256 amountToSendPool = bufferBalance * (block.timestamp - lastPaid) / bufferPayoutPeriod;
-		
-		if (amountToSendPool > bufferBalance) amountToSendPool = bufferBalance;
-		
-		poolStore.incrementBalance(asset, amountToSendPool);
-		poolStore.decrementBufferBalance(asset, amountToSendPool);
-		poolStore.setLastPaid(asset, _now);
 
 		emit PoolPayIn(
 			user,
@@ -105,7 +105,6 @@ contract Pool is Roles {
 			poolStore.getBalance(asset),
 			poolStore.getBufferBalance(asset)
 		);
-
 	}
 
 	// pay out trader win, from buffer first then pool if buffer is depleted
