@@ -1,12 +1,12 @@
-const { time, loadFixture, takeSnapshot } = require("@nomicfoundation/hardhat-network-helpers");
+const { time, loadFixture, takeSnapshot } = require('@nomicfoundation/hardhat-network-helpers');
 // https://hardhat.org/hardhat-network-helpers/docs/reference
 
-const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
+const { anyValue } = require('@nomicfoundation/hardhat-chai-matchers/withArgs');
 // https://hardhat.org/hardhat-chai-matchers/docs/reference
 
-const { expect } = require("chai");
+const { expect } = require('chai');
 
-const { ADDRESS_ZERO, BPS_DIVIDER, formatEvent, logReceipt, PRODUCTS, toUnits } = require('./utils.js');
+const { ADDRESS_ZERO, CHAINLINK_FEED, BPS_DIVIDER, formatEvent, logReceipt, PRODUCTS, toUnits } = require('./utils.js');
 const { setup } = require('./setup.js');
 
 let loggingEnabled = true;
@@ -23,18 +23,22 @@ function fillAsset(val) {
 // all valid orders
 let ordersToSubmit = [
   {
-    market: 'ETH-USD',
+    orderId: 0,
+    user: ADDRESS_ZERO,
     asset: ADDRESS_ZERO,
-    isLong: true, // long
+    market: 'ETH-USD',
+    margin: toUnits(0.0005),
+    size: toUnits(0.005),
     price: 0, // market order
-    margin: toUnits(1),
-    size: toUnits(5),
+    fee: 0,
+    isLong: true, // long
     orderType: 0,
     isReduceOnly: false,
+    timestamp: 0,
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(1).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee
+    value: toUnits(1).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee
   },
   {
     market: 'ETH-USD',
@@ -48,7 +52,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(10).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(0.5).add(toUnits(10).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee
+    value: toUnits(0.5).add(toUnits(10).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee
   },
   {
     market: 'ETH-USD',
@@ -62,7 +66,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(1).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee
+    value: toUnits(1).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee
   },
   {
     market: 'ETH-USD',
@@ -76,7 +80,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(5).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee
+    value: toUnits(5).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee
   },
   {
     market: 'ETH-USD',
@@ -90,7 +94,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(2).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee
+    value: toUnits(2).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee
   },
   {
     market: 'ETH-USD',
@@ -104,7 +108,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(10).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(3).add(toUnits(10).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee
+    value: toUnits(3).add(toUnits(10).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee
   },
   {
     market: 'ETH-USD',
@@ -117,7 +121,7 @@ let ordersToSubmit = [
     isReduceOnly: false,
     expiry: 0,
     cancelOrderId: 0,
-    feeAmount: toUnits(5000, 6).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)
+    feeAmount: toUnits(5000, 6).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
   },
   {
     market: 'ETH-USD',
@@ -130,7 +134,7 @@ let ordersToSubmit = [
     isReduceOnly: false,
     expiry: 0,
     cancelOrderId: 0,
-    feeAmount: toUnits(5000, 6).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)
+    feeAmount: toUnits(5000, 6).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
   },
   {
     market: 'ETH-USD',
@@ -144,7 +148,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER) // fee only
+    value: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER), // fee only
   },
   {
     market: 'ETH-USD',
@@ -158,7 +162,7 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(2).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)) // margin + fee, sent extra, expect refund
+    value: toUnits(2).add(toUnits(5).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)), // margin + fee, sent extra, expect refund
   },
   {
     market: 'ETH-USD',
@@ -171,10 +175,10 @@ let ordersToSubmit = [
     isReduceOnly: true,
     expiry: 0,
     cancelOrderId: 0,
-    feeAmount: toUnits(5000, 6).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER)
+    feeAmount: toUnits(5000, 6).mul(PRODUCTS['ETH-USD'].fee).div(BPS_DIVIDER),
   },
   {
-    market: 'BTC-USD', // new market 
+    market: 'BTC-USD', // new market
     asset: ADDRESS_ZERO,
     isLong: true, // long
     price: 0, // market order
@@ -185,32 +189,30 @@ let ordersToSubmit = [
     expiry: 0,
     cancelOrderId: 0,
     feeAmount: toUnits(5).mul(PRODUCTS['BTC-USD'].fee).div(BPS_DIVIDER),
-    value: toUnits(1).add(toUnits(5).mul(PRODUCTS['BTC-USD'].fee).div(BPS_DIVIDER)) // margin + fee
-  }
+    value: toUnits(1).add(toUnits(5).mul(PRODUCTS['BTC-USD'].fee).div(BPS_DIVIDER)), // margin + fee
+  },
 ];
 
 // Tests
 
-describe("Trading", function() {
-
-  before(async function() {
+describe('Trading', function () {
+  before(async function () {
     if (_.provider) return;
     console.log('Initializing...');
     _ = await setup();
-    
-    // console.log('Setting mock chainlink price...');
 
-    // await _.chainlink.setMarketPrice(ADDRESS_ZERO, toUnits(1222));
+    console.log('Setting mock chainlink price...');
+
+    await _.chainlink.setMarketPrice(CHAINLINK_FEED, toUnits(5000));
 
     console.log('Setup done...');
 
     // console.log('Mock chainlink price', await _.chainlink.getPrice(ADDRESS_ZERO));
-
   });
 
-  describe("submitOrder", function () {
-    it("Should not submit below min size", async function() {
-
+  describe('submitOrder', function () {
+    it('Should not submit below min size', async function () {
+      //console.log(_.orderStore.getUserOrders(_.signer.address));
     });
   });
 
@@ -390,5 +392,4 @@ describe("Trading", function() {
     });
 
   });*/
-
 });

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 contract Governable {
-    
     address public gov;
 
     event SetGov(address prevGov, address nextGov);
@@ -12,7 +11,7 @@ contract Governable {
     }
 
     modifier onlyGov() {
-        require(msg.sender == gov, "!gov");
+        require(msg.sender == gov, '!gov');
         _;
     }
 
@@ -25,5 +24,4 @@ contract Governable {
         gov = _gov;
         emit SetGov(prevGov, _gov);
     }
-
 }

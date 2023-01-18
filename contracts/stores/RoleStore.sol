@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../utils/Governable.sol";
+import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
+import '../utils/Governable.sol';
 
 contract RoleStore is Governable {
-
-	using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     EnumerableSet.Bytes32Set internal roles;
@@ -30,5 +29,4 @@ contract RoleStore is Governable {
     function getRoleCount() external view returns (uint256) {
         return roles.length();
     }
-    
 }
