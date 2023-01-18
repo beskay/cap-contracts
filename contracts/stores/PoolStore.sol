@@ -63,19 +63,18 @@ contract PoolStore is Roles {
 		lastPaid[asset] = timestamp;
 	}
 
-	function incrementClpSupply(address asset, uint256 amount) external onlyContract {
-		clpSupply[asset] += amount;
-	}
-
-	function decrementClpSupply(address asset, uint256 amount) external onlyContract {
-		clpSupply[asset] = clpSupply[asset] <= amount ? 0 : clpSupply[asset] - amount;
-	}
-
 	function incrementUserClpBalance(address asset, address user, uint256 amount) external onlyContract {
-		userClpBalances[asset][user] += amount;
+		clpSupply[asset] += amount;
+
+        unchecked {
+            // Overflow not possible: balance + amount is at most clpSupply + amount, which is checked above.
+			userClpBalances[asset][user] += amount;
+        }
 	}
 
 	function decrementUserClpBalance(address asset, address user, uint256 amount) external onlyContract {
+		clpSupply[asset] = clpSupply[asset] <= amount ? 0 : clpSupply[asset] - amount;
+
 		userClpBalances[asset][user] = userClpBalances[asset][user] <= amount ? 0 : userClpBalances[asset][user] - amount;
 	}
 

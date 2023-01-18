@@ -1,8 +1,18 @@
 # CAP v4 Solidity Contracts
 
+basically if we have these by Monday
+
+- General review and bug fixes
+- Merge incrementClpSupply and incrementUserClpBalance
+- Explore refactoring PositionLiquidated event with PositionDecreased
+- Require Chainlink feed for added markets and disable changing the feed after a market is created
+- Add constants to mitigate attack scenarios where keys are compromised. Max fee, max oracle fee, max chainlink deviation, max liqThreshold, max pool drawdown, etc.
+
+plus some testing, we're good to go imo
+
 ## TODO
  
-- [ ] Merge `incrementClpSupply` and `incrementUserClpBalance`
+- [x] Merge `incrementClpSupply` and `incrementUserClpBalance`
 - [ ] Explore refactoring `PositionLiquidated` event with `PositionDecreased`
 - [ ] Require Chainlink feed for added markets and disable changing the feed after a market is created
 - [ ] Add constants to mitigate attack scenarios where keys are compromised. Max fee, max oracle fee, max chainlink deviation, max liqThreshold, max pool drawdown, etc.

@@ -172,13 +172,10 @@ contract Pool is Roles {
 
         //console.log(8);
         
-        // TODO: can be merged with incrementUserClpBalance - like minting CLP
-		poolStore.incrementClpSupply(asset, clpAmount);
-		//console.log(9);
 		poolStore.incrementUserClpBalance(asset, user, clpAmount);
-		//console.log(10);
+		//console.log(9);
 		poolStore.incrementBalance(asset, amount);
-		//console.log(11);
+		//console.log(10);
 
 		emit PoolDeposit(
 			user,
@@ -210,7 +207,6 @@ contract Pool is Roles {
 		// CLP amount
 		uint256 clpAmount = amountMinusFee * clpSupply / balance;
 
-		poolStore.decrementClpSupply(asset, clpAmount);
 		poolStore.decrementUserClpBalance(asset, user, clpAmount);
 		poolStore.decrementBalance(asset, amountMinusFee);
 
