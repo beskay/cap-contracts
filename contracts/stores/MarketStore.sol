@@ -38,6 +38,13 @@ contract MarketStore is Roles {
 	function set(string memory market, Market memory marketInfo) external onlyGov {
 		require(marketInfo.fee <= MAX_FEE, "!max-fee");
 		require(marketInfo.maxLeverage >= 1, "!max-leverage");
+		require(marketInfo.chainlinkFeed != address(0), "!chainlinkFeed");
+
+		// chainlinkFeed cant be changed once set 
+		if(markets[market].chainlinkFeed != address(0)) {
+			require(markets[market].chainlinkFeed == marketInfo.chainlinkFeed, "!chainlink");
+		} 
+
 		markets[market] = marketInfo;
 		for (uint256 i = 0; i < marketList.length; i++) {
 			if (keccak256(abi.encodePacked(marketList[i])) == keccak256(abi.encodePacked(market))) return;
