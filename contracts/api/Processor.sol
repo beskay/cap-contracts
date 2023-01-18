@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 // import 'hardhat/console.sol';
 
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
 import "../stores/AssetStore.sol";
 import "../stores/DataStore.sol";
 import "../stores/FundStore.sol";
@@ -39,6 +41,7 @@ contract Processor is Roles {
 		bool isLong,
 		uint256 size,
 		uint256 margin,
+		uint256 marginUsd,
 		uint256 price,
 		uint256 fee
 	);
@@ -340,6 +343,7 @@ contract Processor is Roles {
 				position.isLong,
 				position.size,
 				position.margin,
+				_getUsdAmount(asset, position.margin),
 				price,
 				fee
 			);
@@ -352,6 +356,20 @@ contract Processor is Roles {
 
 
 	// -- Utils -- //
+
+	function _getUsdAmount(
+		address asset, 
+		uint256 amount
+	) internal view returns(uint256) {
+		AssetStore.Asset memory assetInfo = assetStore.get(asset);
+		uint256 chainlinkPrice = chainlink.getPrice(assetInfo.chainlinkFeed);
+		uint256 decimals = 18;
+		if (asset != address(0)) {
+			decimals = IERC20Metadata(asset).decimals();
+		}
+		// amount is in the asset's decimals, convert to 18. Price is 18 decimals
+		return amount * chainlinkPrice / 10**decimals;
+	}
 
 	function _boundPriceWithChainlink(uint256 maxDeviation, uint256 chainlinkPrice, uint256 price) internal pure returns(bool) {
 		if (chainlinkPrice == 0 || maxDeviation == 0) return true;

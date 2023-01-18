@@ -58,9 +58,9 @@ contract Positions is Roles {
 		int256 fundingTracker,
 		uint256 fee,
 		int256 pnl,
+		int256 pnlUsd,
 		int256 fundingFee
 	);
-
 
 	event MarginIncreased(
 		address indexed user,
@@ -348,6 +348,7 @@ contract Positions is Roles {
 			position.fundingTracker,
 			feeToPay,
 			pnl,
+			_getUsdAmount(order.asset, pnl),
 			fundingFee
 		);
 
@@ -445,6 +446,7 @@ contract Positions is Roles {
 	    	position.price,
 	    	position.fundingTracker,
 	    	fee,
+	    	0,
 	    	0,
 	    	0
 	    );
@@ -615,6 +617,20 @@ contract Positions is Roles {
 
 		return (pnl, fundingFee);
 
+	}
+
+	function _getUsdAmount(
+		address asset, 
+		int256 amount
+	) internal view returns(int256) {
+		AssetStore.Asset memory assetInfo = assetStore.get(asset);
+		uint256 chainlinkPrice = chainlink.getPrice(assetInfo.chainlinkFeed);
+		uint256 decimals = 18;
+		if (asset != address(0)) {
+			decimals = IERC20Metadata(asset).decimals();
+		}
+		// amount is in the asset's decimals, convert to 18. Price is 18 decimals
+		return amount * int256(chainlinkPrice) / int256(10**decimals);
 	}
 
 
