@@ -22,7 +22,7 @@ contract PositionStore is Roles {
 	}
 
 	uint256 public removeMarginBuffer = 1000;
-	uint256 public oracleFeeShare = 1000;
+	uint256 public keeperFeeShare = 500;
 
 	mapping(address => mapping(string => uint256)) private OI; // open interest. market => asset => amount
 	mapping(address => mapping(string => uint256)) private OILong; // open interest. market => asset => amount
@@ -37,8 +37,8 @@ contract PositionStore is Roles {
 	function setRemoveMarginBuffer(uint256 bps) external onlyGov {
 		removeMarginBuffer = bps;
 	}
-	function setOracleFeeShare(uint256 bps) external onlyGov {
-		oracleFeeShare = bps;
+	function setKeeperFeeShare(uint256 bps) external onlyGov {
+		keeperFeeShare = bps;
 	}
 
 	function incrementOI(

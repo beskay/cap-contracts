@@ -87,7 +87,7 @@ contract Positions is Roles {
 	    uint256 poolFee,
 	    uint256 stakingFee,
 	    uint256 treasuryFee,
-	    uint256 oracleFee,
+	    uint256 keeperFee,
 	    bool isLiquidation
 	);
 
@@ -134,7 +134,8 @@ contract Positions is Roles {
 
 	function increasePosition(
 		uint256 orderId, 
-		uint256 price
+		uint256 price,
+		address keeper
 	) public onlyContract {
 
 		// console.log(1);
@@ -157,7 +158,8 @@ contract Positions is Roles {
 			order.asset, 
 			order.market, 
 			order.fee, 
-			false
+			false,
+			keeper
 		);
 
 		positionStore.incrementOI(
@@ -216,7 +218,8 @@ contract Positions is Roles {
 
 	function decreasePosition(
 		uint256 orderId, 
-		uint256 price
+		uint256 price,
+		address keeper
 	) external onlyContract {
 
 		OrderStore.Order memory order = orderStore.get(orderId);
@@ -251,7 +254,8 @@ contract Positions is Roles {
 			order.asset, 
 			order.market, 
 			fee, 
-			false
+			false,
+			keeper
 		);
 
 		// If an order is reduce-only, fee is taken from the position's margin.
@@ -375,7 +379,7 @@ contract Positions is Roles {
 
 			uint256 nextOrderId = orderStore.add(nextOrder);
 
-			increasePosition(nextOrderId, price);
+			increasePosition(nextOrderId, price, keeper);
 
 		}
 
@@ -425,7 +429,8 @@ contract Positions is Roles {
 	    	_asset, 
 	    	_market, 
 	    	fee, 
-	    	false
+	    	false,
+	    	address(0)
 	    );
 
 	    positionStore.remove(user, _asset, _market);
@@ -553,16 +558,21 @@ contract Positions is Roles {
 		address asset,
 		string memory market,
 		uint256 fee,
-		bool isLiquidation
+		bool isLiquidation,
+		address keeper
 	) public onlyContract {
 
-		// Credit fee to oracle, pool, stakers, treasury
+		// Credit fee to keeper, pool, stakers, treasury
 
 		if (fee == 0) return;
 
-		uint256 oracleFee = _fundOracle(asset, fee);
+		uint256 keeperFee;
 
-		uint256 netFee = fee - oracleFee;
+		if (keeper != address(0)) {
+			keeperFee = fee * positionStore.keeperFeeShare() / BPS_DIVIDER;
+		}
+
+		uint256 netFee = fee - keeperFee;
 
 		uint256 feeToStaking = netFee * stakingStore.feeShare() / BPS_DIVIDER;
 		uint256 feeToPool = netFee * poolStore.feeShare() / BPS_DIVIDER;
@@ -572,6 +582,7 @@ contract Positions is Roles {
 		stakingStore.incrementPendingReward(asset, feeToStaking);
 
 		fundStore.transferOut(asset, DS.getAddress('treasury'), feeToTreasury);
+		fundStore.transferOut(asset, keeper, keeperFee);
 
 		emit FeePaid(
 			orderId,
@@ -582,7 +593,7 @@ contract Positions is Roles {
 			feeToPool,
 			feeToStaking,
 			feeToTreasury,
-			oracleFee,
+			keeperFee,
 			isLiquidation
 		);
 
@@ -631,16 +642,6 @@ contract Positions is Roles {
 		}
 		// amount is in the asset's decimals, convert to 18. Price is 18 decimals
 		return amount * int256(chainlinkPrice) / int256(10**decimals);
-	}
-
-
-	function _fundOracle(address asset, uint256 amount) internal returns(uint256) {
-		// Transfer fee portion to oracle if any
-		address oracle = DS.getAddress("oracle");
-		uint256 oracleFeeShare = positionStore.oracleFeeShare();
-		uint256 oracleFee = oracleFeeShare * amount / BPS_DIVIDER;
-		fundStore.transferOut(asset, oracle, oracleFee);
-		return oracleFee;
 	}
 
 }

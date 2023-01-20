@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 // import 'hardhat/console.sol';
 
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
+import "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
 
 import "../stores/AssetStore.sol";
 import "../stores/DataStore.sol";
@@ -46,6 +48,23 @@ contract Processor is Roles {
 		uint256 fee
 	);
 
+	event OrderSkipped(
+		uint256 indexed orderId,
+		string market,
+		uint256 price,
+		uint256 publishTime,
+		string reason
+	);
+
+	event UserSkipped(
+		address indexed user,
+		address indexed asset,
+		string market,
+		uint256 price,
+		uint256 publishTime,
+		string reason
+	);
+
 	DataStore public DS;
 
 	AssetStore public assetStore;
@@ -62,6 +81,7 @@ contract Processor is Roles {
 	Positions public positions;
 
 	Chainlink public chainlink;
+	IPyth public pyth;
 
 	constructor(RoleStore rs, DataStore ds) Roles(rs) {
 		DS = ds;
@@ -80,6 +100,7 @@ contract Processor is Roles {
 		orders = Orders(DS.getAddress('Orders'));
 		positions = Positions(DS.getAddress('Positions'));
 		chainlink = Chainlink(DS.getAddress('Chainlink'));
+		pyth = IPyth(DS.getAddress('Pyth'));
 	}
 
 	modifier ifNotPaused() {
@@ -91,19 +112,62 @@ contract Processor is Roles {
 
 	// Anyone can call this
 	function selfExecuteOrder(uint256 orderId) external ifNotPaused {
-		(bool status, string memory reason) = _executeOrder(orderId, 0, true);
+		(bool status, string memory reason) = _executeOrder(orderId, 0, true, address(0));
 		require(status, reason);
 	}
 
-	// Orders that cannot be executed the first time by oracle are cancelled with reason
-	function executeOrders(uint256[] calldata orderIds, uint256[] calldata prices) external ifNotPaused onlyOracle {
+	// Orders executed by keeper (aynone) with Pyth priceUpdateData
+	function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable ifNotPaused {
+
+		// updates price for all submitted price feeds
+		uint256 fee = pyth.getUpdateFee(priceUpdateData);
+		require(msg.value >= fee, "!fee");
+		
+		pyth.updatePriceFeeds{value: fee}(priceUpdateData);
+
+		// Get the price for each order
 		for (uint256 i = 0; i < orderIds.length; i++) {
-			(bool status, string memory reason) = _executeOrder(orderIds[i], prices[i], false);
+
+			OrderStore.Order memory order = orderStore.get(orderIds[i]);
+			MarketStore.Market memory market = marketStore.get(order.market);
+
+			if (block.timestamp - order.timestamp < market.minOrderAge) {
+				// Order too early (front run prevention)
+				emit OrderSkipped(
+					orderIds[i],
+					order.market,
+					0,
+					0,
+					"!early"
+				);
+				continue;
+			}
+			
+			(uint256 price, uint256 publishTime) = _getPythPrice(market.pythFeedId);
+
+			if (block.timestamp - publishTime > market.pythMaxAge) {
+				// Price too old
+				emit OrderSkipped(
+					orderIds[i],
+					order.market,
+					price,
+					publishTime,
+					"!stale"
+				);
+				continue;
+			}
+
+			(bool status, string memory reason) = _executeOrder(orderIds[i], price, false, msg.sender);
 			if (!status) orders.cancelOrder(orderIds[i], reason);
 		}
 	}
 
-	function _executeOrder(uint256 orderId, uint256 price, bool withChainlink) internal returns(bool, string memory) {
+	function _executeOrder(
+		uint256 orderId, 
+		uint256 price, 
+		bool withChainlink,
+		address keeper
+	) internal returns(bool, string memory) {
 
 		// console.log(1);
 
@@ -126,14 +190,9 @@ contract Processor is Roles {
 			return (false, "!too-old");
 		}
 
-		// console.log(5);
+		// console.log(6);
 
 		MarketStore.Market memory market = marketStore.get(order.market);
-		if (market.isClosed) {
-			return (false, "!market-closed");
-		}
-
-		// console.log(6);
 
 		uint256 chainlinkPrice = chainlink.getPrice(market.chainlinkFeed);
 
@@ -167,12 +226,12 @@ contract Processor is Roles {
 
 		// Is trigger order executable at provided price?
 		if (order.orderType != 0) {
-			if( withChainlink && (
+			if (
 				order.orderType == 1 && order.isLong && price > order.price || // limit buy
 				order.orderType == 1 && !order.isLong && price < order.price || // limit sell
 				order.orderType == 2 && order.isLong && price < order.price || // stop buy
 				order.orderType == 2 && !order.isLong && price > order.price // stop sell
-			)) {
+			) {
 				return (true, "!no-execution"); // don't cancel order
 			}
 			// price = order.price; // can't have this otherwise orders might execute at much worse than market price
@@ -202,12 +261,12 @@ contract Processor is Roles {
 		bool doReduce = position.size > 0 && order.isLong != position.isLong;
 
 		if (doAdd) {
-			try positions.increasePosition(orderId, price) {
+			try positions.increasePosition(orderId, price, keeper) {
 			} catch Error(string memory reason) {
 				return (false, reason);
 			}
 		} else if (doReduce) {
-			try positions.decreasePosition(orderId, price) {
+			try positions.decreasePosition(orderId, price, keeper) {
 			} catch Error(string memory reason) {
 				return (false, reason);
 			}
@@ -225,7 +284,7 @@ contract Processor is Roles {
 
 	// Anyone can call this
 	function selfLiquidatePosition(address user, address asset, string memory market) external ifNotPaused {
-		(bool status, string memory reason) = _liquidatePosition(user, asset, market, 0, true);
+		(bool status, string memory reason) = _liquidatePosition(user, asset, market, 0, true, address(0));
 		require(status, reason);
 	}
 
@@ -233,22 +292,48 @@ contract Processor is Roles {
 		address[] calldata users,
 		address[] calldata assets,
 		string[] calldata markets,
-		uint256[] calldata prices
-	) external ifNotPaused onlyOracle {
+		bytes[] calldata priceUpdateData
+	) external payable ifNotPaused {
+
+		// updates price for all submitted price feeds
+		uint256 fee = pyth.getUpdateFee(priceUpdateData);
+		require(msg.value >= fee, "!fee");
+		
+		pyth.updatePriceFeeds{value: fee}(priceUpdateData);
+
 		for (uint256 i = 0; i < users.length; i++) {
+
+			MarketStore.Market memory market = marketStore.get(markets[i]);
+
+			(uint256 price, uint256 publishTime) = _getPythPrice(market.pythFeedId);
+
+			if (block.timestamp - publishTime > market.pythMaxAge) {
+				// Price too old
+				emit UserSkipped(
+					users[i],
+					assets[i], 
+					markets[i],
+					price,
+					publishTime,
+					"!stale"
+				);
+				continue;
+			}
+
 			(bool status, string memory reason) = _liquidatePosition(
 				users[i], 
 				assets[i], 
 				markets[i], 
-				prices[i], 
-				false
+				price, 
+				false,
+				msg.sender
 			);
 			if (!status) {
 				emit LiquidationError(
 					users[i], 
 					assets[i], 
 					markets[i], 
-					prices[i],
+					price,
 					reason
 				);
 			}
@@ -260,7 +345,8 @@ contract Processor is Roles {
 		address asset,
 		string memory market,
 		uint256 price,
-		bool withChainlink
+		bool withChainlink,
+		address keeper
 	) internal returns(bool, string memory) {
 
 		PositionStore.Position memory position = positionStore.get(user, asset, market);
@@ -322,7 +408,8 @@ contract Processor is Roles {
 				asset, 
 				market, 
 				fee, 
-				true
+				true,
+				keeper
 			);
 
 			positionStore.decrementOI(
@@ -356,6 +443,14 @@ contract Processor is Roles {
 
 
 	// -- Utils -- //
+
+	function _getPythPrice(bytes32 priceFeedId) internal view returns (uint256 price, uint256 publishTime) {
+        // It will revert if the price is older than maxAge
+        PythStructs.Price memory retrievedPrice = pyth.getPriceUnsafe(priceFeedId);
+        uint256 baseConvertion = 10**uint256(int256(18) + retrievedPrice.expo);
+        price = uint256(retrievedPrice.price * int256(baseConvertion)); // 18 decimals
+        publishTime = retrievedPrice.publishTime;
+    }
 
 	function _getUsdAmount(
 		address asset, 

@@ -14,6 +14,9 @@ contract MarketStore is Roles {
 		uint256 fee; // In bps. 10 = 0.1%
 		uint256 liqThreshold; // In bps
 		uint256 fundingFactor; // Yearly funding rate if OI is completely skewed to one side. In bps.
+		uint256 minOrderAge;
+		uint256 pythMaxAge;
+		bytes32 pythFeedId;
 		bool allowChainlinkExecution; // Allow anyone to execute orders with chainlink
 		bool isClosed; // if market is closed, eg weekends, etc
 		bool isReduceOnly; // accepts only reduce only orders
