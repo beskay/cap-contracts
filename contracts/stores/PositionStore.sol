@@ -20,6 +20,8 @@ contract PositionStore is Roles {
         uint256 timestamp;
     }
 
+    uint256 public MAX_ORACLE_FEE_SHARE = 2000; // 20%
+
     uint256 public removeMarginBuffer = 1000;
     uint256 public oracleFeeShare = 1000;
 
@@ -38,6 +40,7 @@ contract PositionStore is Roles {
     }
 
     function setOracleFeeShare(uint256 bps) external onlyGov {
+        require(bps <= MAX_ORACLE_FEE_SHARE, '!oracle-fee-share');
         oracleFeeShare = bps;
     }
 

@@ -8,6 +8,8 @@ import '../utils/Roles.sol';
 contract PoolStore is Roles {
     using SafeERC20 for IERC20;
 
+    uint256 public constant MAX_POOL_WITHDRAWAL_FEE = 500; // in bps = 5%
+
     uint256 public feeShare = 500;
 
     uint256 public bufferPayoutPeriod = 7 days;
@@ -35,6 +37,7 @@ contract PoolStore is Roles {
     }
 
     function setWithdrawalFee(address asset, uint256 bps) external onlyGov {
+        require(bps <= MAX_POOL_WITHDRAWAL_FEE, '!pool-withdrawal-fee');
         withdrawalFees[asset] = bps;
     }
 

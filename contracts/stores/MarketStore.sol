@@ -19,6 +19,8 @@ contract MarketStore is Roles {
     }
 
     uint256 public constant MAX_FEE = 1000; // 10%
+    uint256 public constant MAX_DEVIATION = 1000; // 10%
+    uint256 public constant MAX_LIQTHRESHOLD = 10000; // 100%
 
     string[] public marketList; // "ETH-USD", "BTC-USD", etc
 
@@ -38,6 +40,8 @@ contract MarketStore is Roles {
         require(marketInfo.fee <= MAX_FEE, '!max-fee');
         require(marketInfo.maxLeverage >= 1, '!max-leverage');
         require(marketInfo.chainlinkFeed != address(0), '!chainlinkFeed');
+        require(marketInfo.maxDeviation <= MAX_DEVIATION, '!max-deviation');
+        require(marketInfo.liqThreshold <= MAX_LIQTHRESHOLD, '!max-liqthreshold');
 
         // chainlinkFeed cant be changed once set
         if (markets[market].chainlinkFeed != address(0)) {
