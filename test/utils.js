@@ -1,6 +1,11 @@
 exports.ADDRESS_ZERO = '0x0000000000000000000000000000000000000000';
 exports.BPS_DIVIDER = 10000;
-exports.CHAINLINK_FEED = '0x6ce185860a4963106506C203335A2910413708e9';
+
+// Chainlink feeds (Arbitrum), base asset USD
+exports.ETH_FEED = '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612';
+exports.BTC_FEED = '0x6ce185860a4963106506C203335A2910413708e9';
+exports.EUR_FEED = '0xA14d53bC1F1c0F31B4aA3BD109344E5009051a84';
+exports.XAU_FEED = '0x1F954Dc24a49708C26E0C1777f16750B5C6d5a2c';
 
 exports.toUnits = function (amount, units) {
   return ethers.utils.parseUnits('' + amount, units || 18);
@@ -12,7 +17,7 @@ exports.PRODUCTS = {
     category: 'crypto',
     maxLeverage: 50,
     maxDeviation: 10000, // TEST on local only
-    chainlinkFeed: this.CHAINLINK_FEED,
+    chainlinkFeed: this.ETH_FEED,
     fee: 10, // 0.1%
     liqThreshold: 9900,
     fundingFactor: 10000,
@@ -26,7 +31,7 @@ exports.PRODUCTS = {
     maxLeverage: 50,
     maxDeviation: 10000, // TEST on local only
     fee: 10,
-    chainlinkFeed: this.CHAINLINK_FEED,
+    chainlinkFeed: this.BTC_FEED,
     liqThreshold: 9900,
     fundingFactor: 10000,
     allowChainlinkExecution: true,
@@ -39,7 +44,7 @@ exports.PRODUCTS = {
     maxLeverage: 100,
     maxDeviation: 10000, // TEST on local only
     fee: 3,
-    chainlinkFeed: this.CHAINLINK_FEED,
+    chainlinkFeed: this.EUR_FEED,
     liqThreshold: 9900,
     fundingFactor: 10000,
     allowChainlinkExecution: true,
@@ -52,7 +57,7 @@ exports.PRODUCTS = {
     maxLeverage: 20,
     maxDeviation: 10000, // TEST on local only
     fee: 10,
-    chainlinkFeed: this.CHAINLINK_FEED,
+    chainlinkFeed: this.XAU_FEED,
     liqThreshold: 9500,
     fundingFactor: 10000,
     allowChainlinkExecution: true,

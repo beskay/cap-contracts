@@ -212,9 +212,9 @@ exports.setup = async function () {
   console.log(`Markets configured.`);
 
   // Fund pool store
-  signer.sendTransaction({ to: poolStore.address, value: ethers.utils.parseEther('100') }).then((txObj) => {
-    console.log('Funded poolStore.', txObj.hash);
-  });
+  //signer.sendTransaction({ to: poolStore.address, value: ethers.utils.parseEther('100') }).then((txObj) => {
+  //  console.log('Funded poolStore.', txObj.hash);
+  //});
 
   // Mint and approve some mock tokens
 
@@ -244,6 +244,7 @@ exports.setup = async function () {
     positions,
     processor,
     orderStore,
+    positionStore,
     cap,
   };
 };
