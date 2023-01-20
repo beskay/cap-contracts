@@ -16,7 +16,7 @@ exports.PRODUCTS = {
     name: 'Ethereum / U.S. Dollar',
     category: 'crypto',
     maxLeverage: 50,
-    maxDeviation: 10000, // TEST on local only
+    maxDeviation: 1000,
     chainlinkFeed: this.ETH_FEED,
     fee: 10, // 0.1%
     liqThreshold: 9900,
@@ -29,7 +29,7 @@ exports.PRODUCTS = {
     name: 'Bitcoin / U.S. Dollar',
     category: 'crypto',
     maxLeverage: 50,
-    maxDeviation: 10000, // TEST on local only
+    maxDeviation: 1000,
     fee: 10,
     chainlinkFeed: this.BTC_FEED,
     liqThreshold: 9900,
@@ -42,7 +42,7 @@ exports.PRODUCTS = {
     name: 'Euro / U.S. Dollar',
     category: 'fx',
     maxLeverage: 100,
-    maxDeviation: 10000, // TEST on local only
+    maxDeviation: 1000,
     fee: 3,
     chainlinkFeed: this.EUR_FEED,
     liqThreshold: 9900,
@@ -55,7 +55,7 @@ exports.PRODUCTS = {
     name: 'Gold / U.S. Dollar',
     category: 'commodities',
     maxLeverage: 20,
-    maxDeviation: 10000, // TEST on local only
+    maxDeviation: 1000,
     fee: 10,
     chainlinkFeed: this.XAU_FEED,
     liqThreshold: 9500,
