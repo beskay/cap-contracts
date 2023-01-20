@@ -206,7 +206,7 @@ contract Orders is Roles {
 			require(leverage <= market.maxLeverage * UNIT, "!max-leverage");
 
 			// console.log(71);
-			// Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until oracle picks up the order. That is why maxOI is checked on processing as well, which is fail safe. This check is more of preemptive for user to not submit an order
+			// Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until keeper picks up the order. That is why maxOI is checked on processing as well, which is fail safe. This check is more of preemptive for user to not submit an order
 			riskStore.checkMaxOI(params.asset, params.market, params.size);
 			// console.log(72);
 

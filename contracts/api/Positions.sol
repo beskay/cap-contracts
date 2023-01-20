@@ -146,7 +146,6 @@ contract Positions is Roles {
 		// console.log(2);
 
 		PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
-		MarketStore.Market memory market = marketStore.get(order.market);
 
 		// console.log(3);
 
@@ -245,7 +244,6 @@ contract Positions is Roles {
 			remainingOrderMargin = order.margin - executedOrderMargin;
 		}
 
-		uint256 originalFee = market.fee * executedOrderSize / BPS_DIVIDER;
 		uint256 fee = order.fee * executedOrderSize / order.size;
 
 		creditFee(
@@ -408,7 +406,7 @@ contract Positions is Roles {
 		uint256 price = chainlink.getPrice(market.chainlinkFeed);
 		require(price > 0, "!price");
 
-		(int256 pnl, int256 fundingFee) = getPnL(
+		(int256 pnl, ) = getPnL(
 			_asset, 
 			_market, 
 			position.isLong, 

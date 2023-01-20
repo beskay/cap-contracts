@@ -7,17 +7,11 @@ import "../stores/RoleStore.sol";
 contract Roles is Governable {
 
     bytes32 public constant CONTRACT = keccak256("CONTRACT");
-	bytes32 public constant ORACLE = keccak256("ORACLE");
 
 	RoleStore public roleStore;
 
 	constructor(RoleStore rs) Governable() {
         roleStore = rs;
-    }
-
-    modifier onlyOracle() {
-        require(roleStore.hasRole(msg.sender, ORACLE), "!oracle-role");
-        _;
     }
 
     modifier onlyContract() {

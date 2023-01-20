@@ -37,7 +37,6 @@ contract OrderStore is Roles {
 	uint256 public maxMarketOrderTTL = 5 minutes;
 	uint256 public maxTriggerOrderTTL = 180 days;
 	uint256 public chainlinkCooldown = 5 minutes;
-	uint256 public minOracleBalance = 1 ether;
 
 	constructor(RoleStore rs) Roles(rs) {}
 
@@ -57,9 +56,6 @@ contract OrderStore is Roles {
 	}
 	function setChainlinkCooldown(uint256 amount) external onlyGov {
 		chainlinkCooldown = amount;
-	}
-	function setMinOracleBalance(uint256 amount) external onlyGov {
-		minOracleBalance = amount;
 	}
 
 	function add(Order memory order) external onlyContract returns(uint256) {
