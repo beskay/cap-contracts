@@ -1,92 +1,92 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import "./DataStore.sol";
-import "./PoolStore.sol";
-import "./PositionStore.sol";
+import './DataStore.sol';
+import './PoolStore.sol';
+import './PositionStore.sol';
 
-import "../utils/Roles.sol";
+import '../utils/Roles.sol';
 
 contract RiskStore is Roles {
+    uint256 public constant BPS_DIVIDER = 10000;
+    uint256 public constant MAX_POOL_PROFIT_LIMIT = 1000; // 10%
 
-	uint256 public constant BPS_DIVIDER = 10000;
+    mapping(string => mapping(address => uint256)) private maxOI; // market => asset => amount
 
-	mapping(string => mapping(address => uint256)) private maxOI; // market => asset => amount
+    // Pool Risk Measures
+    uint256 public poolHourlyDecay = 416; // bps = 4.16% hourly, disappears after 24 hours
+    mapping(address => int256) private poolProfitTracker; // asset => amount (amortized)
+    mapping(address => uint256) private poolProfitLimit; // asset => bps
+    mapping(address => uint256) private poolLastChecked; // asset => timestamp
 
-	// Pool Risk Measures
-	uint256 public poolHourlyDecay = 416; // bps = 4.16% hourly, disappears after 24 hours
-	mapping(address => int256) private poolProfitTracker; // asset => amount (amortized)
-	mapping(address => uint256) private poolProfitLimit; // asset => bps
-	mapping(address => uint256) private poolLastChecked; // asset => timestamp
+    DataStore public DS;
 
-	DataStore public DS;
+    constructor(RoleStore rs, DataStore ds) Roles(rs) {
+        DS = ds;
+    }
 
-	constructor(RoleStore rs, DataStore ds) Roles(rs) {
-		DS = ds;
-	}
+    // setters
+    function setMaxOI(string memory market, address asset, uint256 amount) external onlyGov {
+        maxOI[market][asset] = amount;
+    }
 
-	// setters
-	function setMaxOI(string memory market, address asset, uint256 amount) external onlyGov {
-		maxOI[market][asset] = amount;
-	}
-	function setPoolHourlyDecay(uint256 bps) external onlyGov {
-		poolHourlyDecay = bps;
-	}
-	function setPoolProfitLimit(address asset, uint256 bps) external onlyGov {
-		poolProfitLimit[asset] = bps;
-	}
+    function setPoolHourlyDecay(uint256 bps) external onlyGov {
+        poolHourlyDecay = bps;
+    }
 
-	// Checkers
+    function setPoolProfitLimit(address asset, uint256 bps) external onlyGov {
+        require(bps <= MAX_POOL_PROFIT_LIMIT, '!profit-limit');
+        poolProfitLimit[asset] = bps;
+    }
 
-	function checkMaxOI(address asset, string memory market, uint256 size) external view {
-		uint256 OI = PositionStore(DS.getAddress('PositionStore')).getOI(asset, market);
-		uint256 _maxOI = maxOI[market][asset];
-		if (_maxOI > 0 && OI + size > _maxOI) revert("!max-oi");
-	}
+    // Checkers
 
-	function checkPoolDrawdown(address asset, int256 pnl) external onlyContract {
+    function checkMaxOI(address asset, string memory market, uint256 size) external view {
+        uint256 OI = PositionStore(DS.getAddress('PositionStore')).getOI(asset, market);
+        uint256 _maxOI = maxOI[market][asset];
+        if (_maxOI > 0 && OI + size > _maxOI) revert('!max-oi');
+    }
 
-		// pnl > 0 means trader win
+    function checkPoolDrawdown(address asset, int256 pnl) external onlyContract {
+        // pnl > 0 means trader win
 
-		uint256 poolAvailable = PoolStore(DS.getAddress('PoolStore')).getAvailable(asset);
-		int256 profitTracker = getPoolProfitTracker(asset) + pnl;
+        uint256 poolAvailable = PoolStore(DS.getAddress('PoolStore')).getAvailable(asset);
+        int256 profitTracker = getPoolProfitTracker(asset) + pnl;
 
-		poolProfitTracker[asset] = profitTracker;
-		poolLastChecked[asset] = block.timestamp;
-		
-		uint256 profitLimit = poolProfitLimit[asset];
-		
-		if (profitLimit == 0 || profitTracker <= 0) return;
-		
-		require(uint256(profitTracker) < profitLimit * poolAvailable / BPS_DIVIDER, "!pool-risk");
+        poolProfitTracker[asset] = profitTracker;
+        poolLastChecked[asset] = block.timestamp;
 
-	}
+        uint256 profitLimit = poolProfitLimit[asset];
 
-	// getters
+        if (profitLimit == 0 || profitTracker <= 0) return;
 
-	function getMaxOI(string memory market, address asset) external view returns(uint256) {
-		return maxOI[market][asset];
-	}
+        require(uint256(profitTracker) < (profitLimit * poolAvailable) / BPS_DIVIDER, '!pool-risk');
+    }
 
-	function getPoolProfitTracker(address asset) public view returns(int256) {
-		int256 profitTracker = poolProfitTracker[asset];
-		uint256 lastCheckedHourId = poolLastChecked[asset] / (1 hours);
-		uint256 currentHourId = block.timestamp / (1 hours);
-		if (currentHourId > lastCheckedHourId) {
-			uint256 hoursPassed = currentHourId - lastCheckedHourId;
-			if (hoursPassed >= BPS_DIVIDER / poolHourlyDecay) {
-				profitTracker = 0;
-			} else {
-				for (uint256 i = 0; i < hoursPassed; i++) {
-					profitTracker *= (int256(BPS_DIVIDER) - int256(poolHourlyDecay)) / int256(BPS_DIVIDER);
-				}
-			}
-		}
-		return profitTracker;
-	}
+    // getters
 
-	function getPoolProfitLimit(address asset) external view returns(uint256) {
-		return poolProfitLimit[asset];
-	}
+    function getMaxOI(string memory market, address asset) external view returns (uint256) {
+        return maxOI[market][asset];
+    }
 
+    function getPoolProfitTracker(address asset) public view returns (int256) {
+        int256 profitTracker = poolProfitTracker[asset];
+        uint256 lastCheckedHourId = poolLastChecked[asset] / (1 hours);
+        uint256 currentHourId = block.timestamp / (1 hours);
+        if (currentHourId > lastCheckedHourId) {
+            uint256 hoursPassed = currentHourId - lastCheckedHourId;
+            if (hoursPassed >= BPS_DIVIDER / poolHourlyDecay) {
+                profitTracker = 0;
+            } else {
+                for (uint256 i = 0; i < hoursPassed; i++) {
+                    profitTracker *= (int256(BPS_DIVIDER) - int256(poolHourlyDecay)) / int256(BPS_DIVIDER);
+                }
+            }
+        }
+        return profitTracker;
+    }
+
+    function getPoolProfitLimit(address asset) external view returns (uint256) {
+        return poolProfitLimit[asset];
+    }
 }
