@@ -11,6 +11,7 @@ contract FundStore is Roles {
 
     constructor(RoleStore rs) Roles(rs) {}
 
+    // Methods
     function transferIn(address asset, address from, uint256 amount) external payable onlyContract {
         if (amount == 0 || asset == address(0)) return;
         IERC20(asset).safeTransferFrom(from, address(this), amount);
@@ -25,10 +26,4 @@ contract FundStore is Roles {
             IERC20(asset).safeTransfer(to, amount);
         }
     }
-
-    // Receive ETH
-
-    fallback() external payable {}
-
-    receive() external payable {}
 }

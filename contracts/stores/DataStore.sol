@@ -4,8 +4,6 @@ pragma solidity ^0.8.0;
 import '../utils/Governable.sol';
 
 contract DataStore is Governable {
-    // TODO: is hashing of keys needed? string can be used directly as the key
-
     // Constants
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;

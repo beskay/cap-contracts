@@ -157,7 +157,6 @@ contract Processor is Roles {
         // Is trigger order executable at provided price?
         if (order.orderType != 0) {
             if (
-                withChainlink &&
                 ((order.orderType == 1 && order.isLong && price > order.price) ||
                     (order.orderType == 1 && !order.isLong && price < order.price) || // limit buy // limit sell
                     (order.orderType == 2 && order.isLong && price < order.price) || // stop buy
