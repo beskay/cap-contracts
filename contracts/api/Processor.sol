@@ -307,9 +307,6 @@ contract Processor is Roles {
         }
 
         MarketStore.Market memory marketInfo = marketStore.get(market);
-        if (marketInfo.isClosed) {
-            return (false, '!market-closed');
-        }
 
         uint256 chainlinkPrice = chainlink.getPrice(marketInfo.chainlinkFeed);
 

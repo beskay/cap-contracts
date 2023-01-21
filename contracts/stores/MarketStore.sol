@@ -17,7 +17,6 @@ contract MarketStore is Roles {
         uint256 pythMaxAge;
         bytes32 pythFeed;
         bool allowChainlinkExecution; // Allow anyone to execute orders with chainlink
-        bool isClosed; // if market is closed, eg weekends, etc
         bool isReduceOnly; // accepts only reduce only orders
     }
 
@@ -56,13 +55,6 @@ contract MarketStore is Roles {
             if (keccak256(abi.encodePacked(marketList[i])) == keccak256(abi.encodePacked(market))) return;
         }
         marketList.push(market);
-    }
-
-    function setMarketStatus(string[] memory _markets, bool[] calldata isClosed) external onlyContractOrGov {
-        for (uint256 i = 0; i < _markets.length; i++) {
-            Market storage market = markets[_markets[i]];
-            market.isClosed = isClosed[i];
-        }
     }
 
     // Getters
