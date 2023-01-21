@@ -116,7 +116,7 @@ contract Processor is Roles {
 		require(status, reason);
 	}
 
-	// Orders executed by keeper (aynone) with Pyth priceUpdateData
+	// Orders executed by keeper (anyone) with Pyth priceUpdateData
 	function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable ifNotPaused {
 
 		// updates price for all submitted price feeds
@@ -143,7 +143,7 @@ contract Processor is Roles {
 				continue;
 			}
 			
-			(uint256 price, uint256 publishTime) = _getPythPrice(market.pythFeedId);
+			(uint256 price, uint256 publishTime) = _getPythPrice(market.pythFeed);
 
 			if (block.timestamp - publishTime > market.pythMaxAge) {
 				// Price too old
@@ -305,7 +305,7 @@ contract Processor is Roles {
 
 			MarketStore.Market memory market = marketStore.get(markets[i]);
 
-			(uint256 price, uint256 publishTime) = _getPythPrice(market.pythFeedId);
+			(uint256 price, uint256 publishTime) = _getPythPrice(market.pythFeed);
 
 			if (block.timestamp - publishTime > market.pythMaxAge) {
 				// Price too old
@@ -447,8 +447,8 @@ contract Processor is Roles {
 	function _getPythPrice(bytes32 priceFeedId) internal view returns (uint256 price, uint256 publishTime) {
         // It will revert if the price is older than maxAge
         PythStructs.Price memory retrievedPrice = pyth.getPriceUnsafe(priceFeedId);
-        uint256 baseConvertion = 10**uint256(int256(18) + retrievedPrice.expo);
-        price = uint256(retrievedPrice.price * int256(baseConvertion)); // 18 decimals
+        uint256 baseConversion = 10**uint256(int256(18) + retrievedPrice.expo);
+        price = uint256(retrievedPrice.price * int256(baseConversion)); // 18 decimals
         publishTime = retrievedPrice.publishTime;
     }
 
