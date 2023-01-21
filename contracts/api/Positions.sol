@@ -197,7 +197,6 @@ contract Positions is Roles {
 
     function decreasePosition(uint256 orderId, uint256 price, address keeper) external onlyContract {
         OrderStore.Order memory order = orderStore.get(orderId);
-        MarketStore.Market memory market = marketStore.get(order.market);
         PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
 
         uint256 executedOrderSize = position.size > order.size ? order.size : position.size;
