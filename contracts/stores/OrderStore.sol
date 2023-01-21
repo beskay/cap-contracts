@@ -16,6 +16,7 @@ contract OrderStore is Roles {
         uint256 margin;
         uint256 size;
         uint256 price;
+        uint256 protectedPrice;
         uint256 fee;
         bool isLong;
         uint8 orderType; // 0 = market, 1 = limit, 2 = stop

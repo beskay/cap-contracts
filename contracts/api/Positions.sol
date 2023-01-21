@@ -315,6 +315,7 @@ contract Positions is Roles {
                 margin: remainingOrderMargin,
                 size: remainingOrderSize,
                 price: 0,
+                protectedPrice: 0,
                 isLong: order.isLong,
                 fee: (order.fee * remainingOrderSize) / order.size,
                 orderType: 0,

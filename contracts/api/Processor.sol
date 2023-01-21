@@ -206,10 +206,16 @@ contract Processor is Roles {
             ) {
                 return (true, '!no-execution'); // don't cancel order
             }
-            // price = order.price; // can't have this otherwise orders might execute at much worse than market price
-        } else if (order.price > 0) {
-            // protected market order
-            if ((order.isLong && price > order.price) || (!order.isLong && price < order.price)) {
+
+            // protected stop order
+            if (order.orderType == 2 && order.protectedPrice > 0) {
+                if ((order.isLong && price > order.protectedPrice) || (!order.isLong && price < order.protectedPrice)) {
+                    return (false, '!protected');
+                }
+            }
+        } else if (order.protectedPrice > 0) {
+            // protected order
+            if ((order.isLong && price > order.protectedPrice) || (!order.isLong && price < order.protectedPrice)) {
                 return (false, '!protected');
             }
         }
@@ -307,10 +313,6 @@ contract Processor is Roles {
         }
 
         MarketStore.Market memory marketInfo = marketStore.get(market);
-        if (marketInfo.isClosed) {
-            return (false, '!market-closed');
-        }
-
         uint256 chainlinkPrice = chainlink.getPrice(marketInfo.chainlinkFeed);
 
         if (withChainlink) {

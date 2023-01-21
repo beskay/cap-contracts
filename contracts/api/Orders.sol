@@ -167,7 +167,6 @@ contract Orders is Roles {
 
         MarketStore.Market memory market = marketStore.get(params.market);
         require(market.maxLeverage > 0, '!market-exists');
-        require(!market.isClosed, '!market-closed');
 
         // console.log(5);
 

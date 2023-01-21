@@ -23,9 +23,8 @@ exports.PRODUCTS = {
     fundingFactor: 10000,
     minOrderAge: 0,
     pythMaxAge: 0,
-    pythFeedId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    pythFeed: '0x0000000000000000000000000000000000000000000000000000000000000000',
     allowChainlinkExecution: true,
-    isClosed: false,
     isReduceOnly: false,
   },
   'BTC-USD': {
@@ -39,9 +38,8 @@ exports.PRODUCTS = {
     fundingFactor: 10000,
     minOrderAge: 0,
     pythMaxAge: 0,
-    pythFeedId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    pythFeed: '0x0000000000000000000000000000000000000000000000000000000000000000',
     allowChainlinkExecution: true,
-    isClosed: false,
     isReduceOnly: false,
   },
   'EUR-USD': {
@@ -55,9 +53,8 @@ exports.PRODUCTS = {
     fundingFactor: 10000,
     minOrderAge: 0,
     pythMaxAge: 0,
-    pythFeedId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    pythFeed: '0x0000000000000000000000000000000000000000000000000000000000000000',
     allowChainlinkExecution: true,
-    isClosed: false,
     isReduceOnly: false,
   },
   'XAU-USD': {
@@ -71,9 +68,8 @@ exports.PRODUCTS = {
     fundingFactor: 10000,
     minOrderAge: 0,
     pythMaxAge: 0,
-    pythFeedId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    pythFeed: '0x0000000000000000000000000000000000000000000000000000000000000000',
     allowChainlinkExecution: true,
-    isClosed: false,
     isReduceOnly: false,
   },
 };

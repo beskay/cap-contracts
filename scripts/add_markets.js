@@ -1,10 +1,9 @@
-const hre = require("hardhat");
+const hre = require('hardhat');
 const { ethers } = require('hardhat');
 const { MARKETS, chainlinkFeeds } = require('./lib/markets.js');
 const { ADDRESS_ZERO } = require('./lib/utils.js');
 
 async function main() {
-
   const network = hre.network.name;
   console.log('Network', network);
 
@@ -16,8 +15,9 @@ async function main() {
   const account = await signer.getAddress();
   console.log('Account', account);
 
-  const marketStore = await (await ethers.getContractFactory("MarketStore")).attach("0xb75386a3F75930207f7E7C649Ce93c994f3dee40");
-
+  const marketStore = await (
+    await ethers.getContractFactory('MarketStore')
+  ).attach('0xb75386a3F75930207f7E7C649Ce93c994f3dee40');
 
   const marketsToAdd = {
     'LINK-USD': {
@@ -29,8 +29,7 @@ async function main() {
       fee: 30,
       liqThreshold: 9000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'YFI-USD': {
       name: 'Yearn Finance / U.S. Dollar',
@@ -41,8 +40,7 @@ async function main() {
       fee: 50,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'AAVE-USD': {
       name: 'Aave / U.S. Dollar',
@@ -53,8 +51,7 @@ async function main() {
       fee: 40,
       liqThreshold: 8500,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'SUSHI-USD': {
       name: 'Sushi / U.S. Dollar',
@@ -65,8 +62,7 @@ async function main() {
       fee: 50,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'UNI-USD': {
       name: 'Uniswap / U.S. Dollar',
@@ -77,8 +73,7 @@ async function main() {
       fee: 50,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'ADA-USD': {
       name: 'Cardano / U.S. Dollar',
@@ -89,8 +84,7 @@ async function main() {
       fee: 65,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'BNB-USD': {
       name: 'Binance / U.S. Dollar',
@@ -101,8 +95,7 @@ async function main() {
       fee: 20,
       liqThreshold: 9000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'COMP-USD': {
       name: 'Compound / U.S. Dollar',
@@ -113,8 +106,7 @@ async function main() {
       fee: 40,
       liqThreshold: 9000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'CRV-USD': {
       name: 'Curve / U.S. Dollar',
@@ -125,8 +117,7 @@ async function main() {
       fee: 65,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'MATIC-USD': {
       name: 'Polygon / U.S. Dollar',
@@ -137,8 +128,7 @@ async function main() {
       fee: 75,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'NEAR-USD': {
       name: 'Near / U.S. Dollar',
@@ -149,8 +139,7 @@ async function main() {
       fee: 100,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'SOL-USD': {
       name: 'Solana / U.S. Dollar',
@@ -161,8 +150,7 @@ async function main() {
       fee: 30,
       liqThreshold: 9000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'XRP-USD': {
       name: 'Ripple / U.S. Dollar',
@@ -173,8 +161,7 @@ async function main() {
       fee: 30,
       liqThreshold: 8000,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'AUD-USD': {
       name: 'Australian Dollar / U.S. Dollar',
@@ -185,8 +172,7 @@ async function main() {
       chainlinkFeed: '0x9854e9a850e7c354c1de177ea953a6b1fba8fc22',
       liqThreshold: 9900,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'USD-CNY': {
       name: 'U.S. Dollar / Chinese Yuan',
@@ -197,8 +183,7 @@ async function main() {
       chainlinkFeed: ADDRESS_ZERO,
       liqThreshold: 9900,
       allowChainlinkExecution: false,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'CAD-USD': {
       name: 'Canadian Dollar / U.S. Dollar',
@@ -209,8 +194,7 @@ async function main() {
       chainlinkFeed: '0xf6da27749484843c4f02f5ad1378cee723dd61d4',
       liqThreshold: 9900,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'GBP-USD': {
       name: 'British Pound / U.S. Dollar',
@@ -221,8 +205,7 @@ async function main() {
       chainlinkFeed: '0x9c4424fd84c6661f97d8d6b3fc3c1aac2bedd137',
       liqThreshold: 9900,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'USD-JPY': {
       name: 'U.S. Dollar / Japanese Yen',
@@ -233,8 +216,7 @@ async function main() {
       chainlinkFeed: ADDRESS_ZERO,
       liqThreshold: 9900,
       allowChainlinkExecution: false,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'USD-KRW': {
       name: 'U.S. Dollar / South Korean Won',
@@ -245,8 +227,7 @@ async function main() {
       chainlinkFeed: ADDRESS_ZERO,
       liqThreshold: 9900,
       allowChainlinkExecution: false,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
     'XAG-USD': {
       name: 'Silver / U.S. Dollar',
@@ -257,8 +238,7 @@ async function main() {
       chainlinkFeed: '0xc56765f04b248394cf1619d20db8082edbfa75b1',
       liqThreshold: 9500,
       allowChainlinkExecution: true,
-      isClosed: false,
-      isReduceOnly: false
+      isReduceOnly: false,
     },
   };
 
@@ -267,7 +247,6 @@ async function main() {
     await marketStore.set(id, _market);
     console.log('Added ', id);
   }
-
 }
 
 // We recommend this pattern to be able to use async/await everywhere

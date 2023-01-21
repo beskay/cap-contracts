@@ -39,6 +39,7 @@ let ordersToSubmit = [
     margin: toUnits(0.5),
     size: toUnits(5),
     price: 0, // market order
+    protectedPrice: 0,
     fee: 0,
     isLong: true, // long
     orderType: 0,
@@ -58,6 +59,7 @@ let ordersToSubmit = [
     margin: toUnits(0.5),
     size: toUnits(10),
     price: 0, // market order
+    protectedPrice: 0,
     fee: 0,
     isLong: false, // short
     orderType: 0,
@@ -77,6 +79,7 @@ let ordersToSubmit = [
     margin: toUnits(1),
     size: toUnits(5),
     price: toUnits(1450), // limit order
+    protectedPrice: 0,
     fee: 0,
     isLong: true, // long
     orderType: 1,
@@ -96,6 +99,7 @@ let ordersToSubmit = [
     margin: toUnits(5),
     size: toUnits(5),
     price: toUnits(1590), // limit order
+    protectedPrice: 0,
     fee: 0,
     isLong: false, // short
     orderType: 1,
@@ -115,6 +119,7 @@ let ordersToSubmit = [
     margin: toUnits(2),
     size: toUnits(5),
     price: toUnits(1610), // stop order
+    protectedPrice: toUnits(1620), // cancel order if price > protectedPrice
     fee: 0,
     isLong: true, // long
     orderType: 2,
@@ -134,6 +139,7 @@ let ordersToSubmit = [
     margin: toUnits(3),
     size: toUnits(10),
     price: toUnits(1344), // stop order
+    protectedPrice: 0,
     fee: 0,
     isLong: false, // short
     orderType: 2,
@@ -153,6 +159,7 @@ let ordersToSubmit = [
     margin: toUnits(1000, 6),
     size: toUnits(5000, 6),
     price: 0, // market order
+    protectedPrice: 0,
     fee: 0,
     isLong: true, // long
     orderType: 0,
@@ -171,6 +178,7 @@ let ordersToSubmit = [
     margin: toUnits(1000, 6),
     size: toUnits(5000, 6),
     price: toUnits(1622), // limit order
+    protectedPrice: 0,
     fee: 0,
     isLong: false, // short
     orderType: 1,
@@ -189,6 +197,7 @@ let ordersToSubmit = [
     margin: toUnits(2),
     size: toUnits(5),
     price: 0, // market order
+    protectedPrice: 0,
     fee: 0,
     isLong: false, // short
     orderType: 0,
@@ -208,6 +217,7 @@ let ordersToSubmit = [
     margin: toUnits(2),
     size: toUnits(5),
     price: toUnits(1610), // stop order
+    protectedPrice: 0,
     fee: 0,
     isLong: true, // short
     orderType: 2,
@@ -227,6 +237,7 @@ let ordersToSubmit = [
     margin: 0,
     size: toUnits(5000, 6),
     price: toUnits(1544), // limit order
+    protectedPrice: 0,
     fee: 0,
     isLong: true, // short
     orderType: 1,
@@ -245,6 +256,7 @@ let ordersToSubmit = [
     margin: toUnits(1),
     size: toUnits(5),
     price: 0, // market order
+    protectedPrice: 0,
     fee: 0,
     isLong: true, // short
     orderType: 0,
@@ -360,12 +372,45 @@ describe('Trading', function () {
         // unpause
         await _.orderStore.setAreNewOrdersPaused(false);
       });
+      it('Should revert protected market order', async function () {
+        let tempOrder = { ...ordersToSubmit[0] };
+
+        // market order, set price -> protected market order
+        tempOrder.protectedPrice = toUnits(1500);
+
+        await _.orders.connect(_.user1).submitOrder(tempOrder, 0, 0, {
+          value: tempOrder.value,
+        });
+
+        // reduce chainlink cooldown
+        await _.orderStore.setChainlinkCooldown(10);
+
+        // set price above protected price
+        await _.chainlink.setMarketPrice(ETH_FEED, toUnits(1501));
+        await time.increase(60); // 1 minute
+
+        // should revert
+        await expect(_.processor.connect(_.user1).selfExecuteOrder(1)).to.be.revertedWith('!protected');
+      });
+      it('Should revert protected stop order', async function () {
+        await _.orders.connect(_.user1).submitOrder(ordersToSubmit[4], 0, 0, {
+          value: ordersToSubmit[4].value,
+        });
+
+        // set price above protected price
+        await _.chainlink.setMarketPrice(ETH_FEED, toUnits(1621));
+        await time.increase(300); // 5 minutes
+
+        // should revert
+        await expect(_.processor.connect(_.user1).selfExecuteOrder(2)).to.be.revertedWith('!protected');
+      });
     });
+    orderIdAfterTests = 3;
     ordersToSubmit.forEach((o, i) => {
       describe(`Should submit a new order on ${o.market} (order index=${i})`, async function () {
         let tx;
 
-        const orderId = i + 1;
+        const orderId = orderIdAfterTests + i;
 
         it('Should submit successfully', async function () {
           // if (i == 9) console.log('Balance pre', await _.provider.getBalance(_.user1.address));
