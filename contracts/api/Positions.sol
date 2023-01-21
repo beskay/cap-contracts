@@ -330,7 +330,7 @@ contract Positions is Roles {
         }
     }
 
-    function closePositionWithoutProfit(address _asset, string memory _market) external {
+    function closePositionWithoutProfit(address _asset, string calldata _market) external {
         address user = msg.sender;
 
         PositionStore.Position memory position = positionStore.get(user, _asset, _market);

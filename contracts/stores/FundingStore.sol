@@ -16,21 +16,25 @@ contract FundingStore is Roles {
         fundingInterval = amount;
     }
 
-    function setLastUpdated(address asset, string memory market, uint256 timestamp) external onlyContract {
+    function setLastUpdated(address asset, string calldata market, uint256 timestamp) external onlyContract {
         lastUpdated[asset][market] = timestamp;
     }
 
-    function updateFundingTracker(address asset, string memory market, int256 fundingIncrement) external onlyContract {
+    function updateFundingTracker(
+        address asset,
+        string calldata market,
+        int256 fundingIncrement
+    ) external onlyContract {
         fundingTrackers[asset][market] += fundingIncrement;
     }
 
     // Getters
 
-    function getLastUpdated(address asset, string memory market) external view returns (uint256) {
+    function getLastUpdated(address asset, string calldata market) external view returns (uint256) {
         return lastUpdated[asset][market];
     }
 
-    function getFundingTracker(address asset, string memory market) external view returns (int256) {
+    function getFundingTracker(address asset, string calldata market) external view returns (int256) {
         return fundingTrackers[asset][market];
     }
 

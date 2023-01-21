@@ -26,7 +26,7 @@ contract RiskStore is Roles {
     }
 
     // setters
-    function setMaxOI(string memory market, address asset, uint256 amount) external onlyGov {
+    function setMaxOI(string calldata market, address asset, uint256 amount) external onlyGov {
         maxOI[market][asset] = amount;
     }
 
@@ -41,7 +41,7 @@ contract RiskStore is Roles {
 
     // Checkers
 
-    function checkMaxOI(address asset, string memory market, uint256 size) external view {
+    function checkMaxOI(address asset, string calldata market, uint256 size) external view {
         uint256 OI = PositionStore(DS.getAddress('PositionStore')).getOI(asset, market);
         uint256 _maxOI = maxOI[market][asset];
         if (_maxOI > 0 && OI + size > _maxOI) revert('!max-oi');
@@ -65,7 +65,7 @@ contract RiskStore is Roles {
 
     // getters
 
-    function getMaxOI(string memory market, address asset) external view returns (uint256) {
+    function getMaxOI(string calldata market, address asset) external view returns (uint256) {
         return maxOI[market][asset];
     }
 

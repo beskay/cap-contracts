@@ -104,7 +104,7 @@ contract Pool is Roles {
     function debitTraderProfit(
         address user,
         address asset,
-        string memory market,
+        string calldata market,
         uint256 amount
     ) external onlyContract {
         if (amount == 0) return;
