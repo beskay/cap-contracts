@@ -9,15 +9,15 @@ contract PositionStore is Roles {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     struct Position {
+        bool isLong;
+        uint32 timestamp; // overflows 7th feb. 2106
         address user;
         address asset;
         string market;
-        bool isLong;
         uint256 size;
         uint256 margin;
         int256 fundingTracker;
         uint256 price;
-        uint256 timestamp;
     }
 
     uint256 public MAX_KEEPER_FEE_SHARE = 2000; // 20%

@@ -98,13 +98,13 @@ contract Processor is Roles {
     // ORDER EXECUTION
 
     // Anyone can call this
-    function selfExecuteOrder(uint256 orderId) external ifNotPaused {
+    function selfExecuteOrder(uint32 orderId) external ifNotPaused {
         (bool status, string memory reason) = _executeOrder(orderId, 0, true, address(0));
         require(status, reason);
     }
 
     // Orders executed by keeper (anyone) with Pyth priceUpdateData
-    function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable ifNotPaused {
+    function executeOrders(uint32[] calldata orderIds, bytes[] calldata priceUpdateData) external payable ifNotPaused {
         // updates price for all submitted price feeds
         uint256 fee = pyth.getUpdateFee(priceUpdateData);
         require(msg.value >= fee, '!fee');
@@ -136,7 +136,7 @@ contract Processor is Roles {
     }
 
     function _executeOrder(
-        uint256 orderId,
+        uint32 orderId,
         uint256 price,
         bool withChainlink,
         address keeper

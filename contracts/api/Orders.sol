@@ -26,7 +26,7 @@ contract Orders is Roles {
     uint256 public constant BPS_DIVIDER = 10000;
 
     event OrderCreated(
-        uint256 indexed orderId,
+        uint32 indexed orderId,
         address indexed user,
         address indexed asset,
         string market,
@@ -37,8 +37,8 @@ contract Orders is Roles {
         uint256 fee,
         uint8 orderType,
         bool isReduceOnly,
-        uint256 expiry,
-        uint256 cancelOrderId
+        uint32 expiry,
+        uint32 cancelOrderId
     );
 
     event OrderCancelled(uint256 indexed orderId, address indexed user, string reason);
@@ -107,8 +107,8 @@ contract Orders is Roles {
                 require((params.isLong && tpPrice > slPrice) || (!params.isLong && tpPrice < slPrice), '!tpsl-invalid');
             }
 
-            uint256 tpOrderId;
-            uint256 slOrderId;
+            uint32 tpOrderId;
+            uint32 slOrderId;
 
             // todo: remove this
             if (tpPrice > 0 || slPrice > 0) {
@@ -144,7 +144,7 @@ contract Orders is Roles {
         }
     }
 
-    function _submitOrder(OrderStore.Order memory params) internal returns (uint256, uint256) {
+    function _submitOrder(OrderStore.Order memory params) internal returns (uint32, uint256) {
         address user = msg.sender;
 
         // console.log(1);
@@ -226,9 +226,9 @@ contract Orders is Roles {
 
         params.user = user;
         params.fee = fee;
-        params.timestamp = block.timestamp;
+        params.timestamp = uint32(block.timestamp);
 
-        uint256 orderId = orderStore.add(params);
+        uint32 orderId = orderStore.add(params);
 
         // console.log(9);
 
@@ -251,14 +251,14 @@ contract Orders is Roles {
         return (orderId, valueConsumed);
     }
 
-    function cancelOrder(uint256 orderId) external ifNotPaused {
+    function cancelOrder(uint32 orderId) external ifNotPaused {
         OrderStore.Order memory order = orderStore.get(orderId);
         require(order.size > 0, '!order');
         require(order.user == msg.sender, '!user');
         _cancelOrder(orderId, 'by-user');
     }
 
-    function cancelOrders(uint256[] calldata orderIds) external ifNotPaused {
+    function cancelOrders(uint32[] calldata orderIds) external ifNotPaused {
         for (uint256 i = 0; i < orderIds.length; i++) {
             OrderStore.Order memory order = orderStore.get(orderIds[i]);
             if (order.size > 0 && order.user == msg.sender) {
@@ -267,17 +267,17 @@ contract Orders is Roles {
         }
     }
 
-    function cancelOrder(uint256 orderId, string calldata reason) external onlyContract {
+    function cancelOrder(uint32 orderId, string calldata reason) external onlyContract {
         _cancelOrder(orderId, reason);
     }
 
-    function cancelOrders(uint256[] calldata orderIds, string[] calldata reasons) external onlyContract {
+    function cancelOrders(uint32[] calldata orderIds, string[] calldata reasons) external onlyContract {
         for (uint256 i = 0; i < orderIds.length; i++) {
             _cancelOrder(orderIds[i], reasons[i]);
         }
     }
 
-    function _cancelOrder(uint256 orderId, string memory reason) internal {
+    function _cancelOrder(uint32 orderId, string memory reason) internal {
         OrderStore.Order memory order = orderStore.get(orderId);
         if (order.size == 0) return;
 

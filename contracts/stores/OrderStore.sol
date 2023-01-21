@@ -9,8 +9,14 @@ contract OrderStore is Roles {
     using EnumerableSet for EnumerableSet.UintSet;
 
     struct Order {
-        uint256 orderId;
+        uint32 orderId;
+        uint32 cancelOrderId;
+        uint8 orderType; // 0 = market, 1 = limit, 2 = stop
+        bool isLong;
+        bool isReduceOnly;
         address user;
+        uint32 timestamp; // overflows 7th feb. 2106
+        uint32 expiry;
         address asset;
         string market;
         uint256 margin;
@@ -18,15 +24,9 @@ contract OrderStore is Roles {
         uint256 price;
         uint256 protectedPrice;
         uint256 fee;
-        bool isLong;
-        uint8 orderType; // 0 = market, 1 = limit, 2 = stop
-        bool isReduceOnly;
-        uint256 timestamp;
-        uint256 expiry;
-        uint256 cancelOrderId;
     }
 
-    uint256 public oid; // incremental order id
+    uint32 public oid; // incremental order id
     mapping(uint256 => Order) private orders; // order id => Order
     mapping(address => EnumerableSet.UintSet) private userOrderIds; // user => [order ids..]
     EnumerableSet.UintSet private marketOrderIds; // [order ids..]
@@ -62,8 +62,8 @@ contract OrderStore is Roles {
         chainlinkCooldown = amount;
     }
 
-    function add(Order memory order) external onlyContract returns (uint256) {
-        uint256 nextOrderId = ++oid;
+    function add(Order memory order) external onlyContract returns (uint32) {
+        uint32 nextOrderId = ++oid;
         order.orderId = nextOrderId;
         orders[nextOrderId] = order;
         userOrderIds[order.user].add(nextOrderId);
@@ -75,7 +75,7 @@ contract OrderStore is Roles {
         return nextOrderId;
     }
 
-    function remove(uint256 orderId) external onlyContract {
+    function remove(uint32 orderId) external onlyContract {
         Order memory order = orders[orderId];
         if (order.size == 0) return;
         userOrderIds[order.user].remove(orderId);
@@ -84,18 +84,18 @@ contract OrderStore is Roles {
         delete orders[orderId];
     }
 
-    function updateCancelOrderId(uint256 orderId, uint256 cancelOrderId) external onlyContract {
+    function updateCancelOrderId(uint32 orderId, uint32 cancelOrderId) external onlyContract {
         Order storage order = orders[orderId];
         order.cancelOrderId = cancelOrderId;
     }
 
     // Getters
 
-    function get(uint256 orderId) public view returns (Order memory) {
+    function get(uint32 orderId) public view returns (Order memory) {
         return orders[orderId];
     }
 
-    function getMany(uint256[] calldata orderIds) external view returns (Order[] memory _orders) {
+    function getMany(uint32[] calldata orderIds) external view returns (Order[] memory _orders) {
         uint256 length = orderIds.length;
         _orders = new Order[](length);
         for (uint256 i = 0; i < length; i++) {

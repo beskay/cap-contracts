@@ -27,7 +27,7 @@ contract Positions is Roles {
     uint256 public constant BPS_DIVIDER = 10000;
 
     event PositionIncreased(
-        uint256 indexed orderId,
+        uint32 indexed orderId,
         address indexed user,
         address indexed asset,
         string market,
@@ -43,7 +43,7 @@ contract Positions is Roles {
     );
 
     event PositionDecreased(
-        uint256 indexed orderId,
+        uint32 indexed orderId,
         address indexed user,
         address indexed asset,
         string market,
@@ -78,7 +78,7 @@ contract Positions is Roles {
     );
 
     event FeePaid(
-        uint256 indexed orderId,
+        uint32 indexed orderId,
         address indexed user,
         address indexed asset,
         string market,
@@ -131,7 +131,7 @@ contract Positions is Roles {
         _;
     }
 
-    function increasePosition(uint256 orderId, uint256 price, address keeper) public onlyContract {
+    function increasePosition(uint32 orderId, uint256 price, address keeper) public onlyContract {
         // console.log(1);
 
         OrderStore.Order memory order = orderStore.get(orderId);
@@ -159,7 +159,7 @@ contract Positions is Roles {
             position.user = order.user;
             position.asset = order.asset;
             position.market = order.market;
-            position.timestamp = block.timestamp;
+            position.timestamp = uint32(block.timestamp);
             position.isLong = order.isLong;
             position.fundingTracker = fundingStore.getFundingTracker(order.asset, order.market);
         }
@@ -195,7 +195,7 @@ contract Positions is Roles {
         );
     }
 
-    function decreasePosition(uint256 orderId, uint256 price, address keeper) external onlyContract {
+    function decreasePosition(uint32 orderId, uint256 price, address keeper) external onlyContract {
         OrderStore.Order memory order = orderStore.get(orderId);
         PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
 
@@ -320,12 +320,12 @@ contract Positions is Roles {
                 fee: (order.fee * remainingOrderSize) / order.size,
                 orderType: 0,
                 isReduceOnly: false,
-                timestamp: block.timestamp,
+                timestamp: uint32(block.timestamp),
                 expiry: 0,
                 cancelOrderId: 0
             });
 
-            uint256 nextOrderId = orderStore.add(nextOrder);
+            uint32 nextOrderId = orderStore.add(nextOrder);
 
             increasePosition(nextOrderId, price, keeper);
         }
@@ -462,7 +462,7 @@ contract Positions is Roles {
     }
 
     function creditFee(
-        uint256 orderId,
+        uint32 orderId,
         address user,
         address asset,
         string memory market,
