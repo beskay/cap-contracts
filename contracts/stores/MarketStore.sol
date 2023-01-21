@@ -13,8 +13,8 @@ contract MarketStore is Roles {
         uint256 fee; // In bps. 10 = 0.1%
         uint256 liqThreshold; // In bps
         uint256 fundingFactor; // Yearly funding rate if OI is completely skewed to one side. In bps.
-        uint256 minOrderAge;
-        uint256 pythMaxAge;
+        uint256 minOrderAge; // Min order age before is can be executed. In seconds
+        uint256 pythMaxAge; // Max Pyth submitted price age, in seconds
         bytes32 pythFeed;
         bool allowChainlinkExecution; // Allow anyone to execute orders with chainlink
         bool isReduceOnly; // accepts only reduce only orders
@@ -23,6 +23,8 @@ contract MarketStore is Roles {
     uint256 public constant MAX_FEE = 1000; // 10%
     uint256 public constant MAX_DEVIATION = 1000; // 10%
     uint256 public constant MAX_LIQTHRESHOLD = 10000; // 100%
+    uint256 public constant MAX_MIN_ORDER_AGE = 30;
+    uint256 public constant MIN_PYTH_MAX_AGE = 3;
 
     string[] public marketList; // "ETH-USD", "BTC-USD", etc
 
@@ -41,14 +43,10 @@ contract MarketStore is Roles {
     function set(string memory market, Market memory marketInfo) external onlyGov {
         require(marketInfo.fee <= MAX_FEE, '!max-fee');
         require(marketInfo.maxLeverage >= 1, '!max-leverage');
-        require(marketInfo.chainlinkFeed != address(0), '!chainlinkFeed');
         require(marketInfo.maxDeviation <= MAX_DEVIATION, '!max-deviation');
         require(marketInfo.liqThreshold <= MAX_LIQTHRESHOLD, '!max-liqthreshold');
-
-        // chainlinkFeed cant be changed once set
-        if (markets[market].chainlinkFeed != address(0)) {
-            require(markets[market].chainlinkFeed == marketInfo.chainlinkFeed, '!chainlink');
-        }
+        require(marketInfo.minOrderAge <= MAX_MIN_ORDER_AGE, '!max-minorderage');
+        require(marketInfo.pythMaxAge >= MIN_PYTH_MAX_AGE, '!min-pythmaxage');
 
         markets[market] = marketInfo;
         for (uint256 i = 0; i < marketList.length; i++) {
