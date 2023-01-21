@@ -31,7 +31,7 @@ module.exports = {
     // },
     arbitrum: {
       url: 'https://arb1.arbitrum.io/rpc',
-      accounts: [process.env.ARBITRUM_PKEY, process.env.ARBITRUM_ORACLE_PKEY]
+      accounts: [process.env.ARBITRUM_PKEY]
     },
     // avalanche: {
     //   url: 'https://api.avax.network/ext/bc/C/rpc',
