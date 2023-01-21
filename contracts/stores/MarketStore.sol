@@ -40,7 +40,7 @@ contract MarketStore is Roles {
         isGlobalReduceOnly = b;
     }
 
-    function set(string memory market, Market memory marketInfo) external onlyGov {
+    function set(string calldata market, Market memory marketInfo) external onlyGov {
         require(marketInfo.fee <= MAX_FEE, '!max-fee');
         require(marketInfo.maxLeverage >= 1, '!max-leverage');
         require(marketInfo.maxDeviation <= MAX_DEVIATION, '!max-deviation');
@@ -57,11 +57,11 @@ contract MarketStore is Roles {
 
     // Getters
 
-    function get(string memory market) external view returns (Market memory) {
+    function get(string calldata market) external view returns (Market memory) {
         return markets[market];
     }
 
-    function getMany(string[] memory _markets) external view returns (Market[] memory _marketInfos) {
+    function getMany(string[] calldata _markets) external view returns (Market[] memory _marketInfos) {
         uint256 length = _markets.length;
         _marketInfos = new Market[](length);
         for (uint256 i = 0; i < length; i++) {

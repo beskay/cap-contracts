@@ -28,7 +28,7 @@ contract Funding is Roles {
         positionStore = PositionStore(DS.getAddress('PositionStore'));
     }
 
-    function updateFundingTracker(address asset, string memory market) external onlyContract {
+    function updateFundingTracker(address asset, string calldata market) external onlyContract {
         uint256 lastUpdated = fundingStore.getLastUpdated(asset, market);
         uint256 _now = block.timestamp;
 

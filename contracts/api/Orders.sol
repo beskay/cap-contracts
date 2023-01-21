@@ -267,7 +267,7 @@ contract Orders is Roles {
         }
     }
 
-    function cancelOrder(uint256 orderId, string memory reason) external onlyContract {
+    function cancelOrder(uint256 orderId, string calldata reason) external onlyContract {
         _cancelOrder(orderId, reason);
     }
 

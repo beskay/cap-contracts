@@ -44,7 +44,7 @@ contract PositionStore is Roles {
         keeperFeeShare = bps;
     }
 
-    function incrementOI(address asset, string memory market, uint256 amount, bool isLong) external onlyContract {
+    function incrementOI(address asset, string calldata market, uint256 amount, bool isLong) external onlyContract {
         OI[asset][market] += amount;
         if (isLong) {
             OILong[asset][market] += amount;
@@ -53,7 +53,7 @@ contract PositionStore is Roles {
         }
     }
 
-    function decrementOI(address asset, string memory market, uint256 amount, bool isLong) external onlyContract {
+    function decrementOI(address asset, string calldata market, uint256 amount, bool isLong) external onlyContract {
         OI[asset][market] = OI[asset][market] <= amount ? 0 : OI[asset][market] - amount;
         if (isLong) {
             OILong[asset][market] = OILong[asset][market] <= amount ? 0 : OILong[asset][market] - amount;
@@ -62,15 +62,15 @@ contract PositionStore is Roles {
         }
     }
 
-    function getOI(address asset, string memory market) external view returns (uint256) {
+    function getOI(address asset, string calldata market) external view returns (uint256) {
         return OI[asset][market];
     }
 
-    function getOILong(address asset, string memory market) external view returns (uint256) {
+    function getOILong(address asset, string calldata market) external view returns (uint256) {
         return OILong[asset][market];
     }
 
-    function getOIShort(address asset, string memory market) external view returns (uint256) {
+    function getOIShort(address asset, string calldata market) external view returns (uint256) {
         return OIShort[asset][market];
     }
 
@@ -83,7 +83,7 @@ contract PositionStore is Roles {
         positionKeys.add(key);
     }
 
-    function remove(address user, address asset, string memory market) external onlyContract {
+    function remove(address user, address asset, string calldata market) external onlyContract {
         bytes32 key = _getPositionKey(user, asset, market);
         positionKeysForUser[user].remove(key);
         positionKeys.remove(key);
@@ -92,7 +92,7 @@ contract PositionStore is Roles {
 
     // Getters
 
-    function get(address user, address asset, string memory market) external view returns (Position memory) {
+    function get(address user, address asset, string calldata market) external view returns (Position memory) {
         bytes32 key = _getPositionKey(user, asset, market);
         return positions[key];
     }
