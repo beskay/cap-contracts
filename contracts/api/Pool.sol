@@ -126,53 +126,36 @@ contract Pool is Roles {
     }
 
     function deposit(address asset, uint256 amount) public payable {
-        //console.log(1);
-
-        //console.log(2);
         require(amount > 0, '!amount');
-        //console.log(3);
         require(assetStore.isSupported(asset), '!asset');
-        //console.log(4);
 
         uint256 balance = poolStore.getBalance(asset);
-
-        //console.log(5);
-        address user = msg.sender;
-
-        if (asset == address(0)) {
-            amount = msg.value;
-            fundStore.transferIn{value: amount}(asset, user, amount);
-        } else {
-            fundStore.transferIn(asset, user, amount);
-        }
-
-        //console.log(6);
-
         uint256 clpSupply = poolStore.getClpSupply(asset);
-        //console.log(7);
         uint256 clpAmount = balance == 0 || clpSupply == 0 ? amount : (amount * clpSupply) / balance;
 
-        //console.log(8);
-
-        poolStore.incrementUserClpBalance(asset, user, clpAmount);
-        //console.log(9);
+        poolStore.incrementUserClpBalance(asset, msg.sender, clpAmount);
         poolStore.incrementBalance(asset, amount);
-        //console.log(10);
 
-        emit PoolDeposit(user, asset, amount, clpAmount, poolStore.getBalance(asset));
+        // transfer funds
+        if (asset == address(0)) {
+            amount = msg.value;
+            fundStore.transferIn{value: amount}(asset, msg.sender, amount);
+        } else {
+            fundStore.transferIn(asset, msg.sender, amount);
+        }
+
+        emit PoolDeposit(msg.sender, asset, amount, clpAmount, poolStore.getBalance(asset));
     }
 
     function withdraw(address asset, uint256 amount) public {
         require(amount > 0, '!amount');
         require(assetStore.isSupported(asset), '!asset');
 
-        address user = msg.sender;
-
         uint256 balance = poolStore.getBalance(asset);
         uint256 clpSupply = poolStore.getClpSupply(asset);
         require(balance > 0 && clpSupply > 0, '!empty');
 
-        uint256 userBalance = poolStore.getUserBalance(asset, user);
+        uint256 userBalance = poolStore.getUserBalance(asset, msg.sender);
         if (amount > userBalance) amount = userBalance;
 
         uint256 feeAmount = (amount * poolStore.getWithdrawalFee(asset)) / BPS_DIVIDER;
@@ -181,11 +164,12 @@ contract Pool is Roles {
         // CLP amount
         uint256 clpAmount = (amountMinusFee * clpSupply) / balance;
 
-        poolStore.decrementUserClpBalance(asset, user, clpAmount);
+        poolStore.decrementUserClpBalance(asset, msg.sender, clpAmount);
         poolStore.decrementBalance(asset, amountMinusFee);
 
-        fundStore.transferOut(asset, user, amountMinusFee);
+        // Transfer Funds
+        fundStore.transferOut(asset, msg.sender, amountMinusFee);
 
-        emit PoolWithdrawal(user, asset, amount, feeAmount, clpAmount, poolStore.getBalance(asset));
+        emit PoolWithdrawal(msg.sender, asset, amount, feeAmount, clpAmount, poolStore.getBalance(asset));
     }
 }
