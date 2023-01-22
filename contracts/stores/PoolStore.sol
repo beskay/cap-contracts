@@ -96,40 +96,6 @@ contract PoolStore is Roles {
         return balances[asset] + bufferBalances[asset];
     }
 
-    function getBalances(address[] calldata _assets) external view returns (uint256[] memory _balances) {
-        uint256 length = _assets.length;
-        _balances = new uint256[](length);
-        for (uint256 i = 0; i < length; i++) {
-            _balances[i] = balances[_assets[i]];
-        }
-        return _balances;
-    }
-
-    function getUserBalance(address asset, address account) public view returns (uint256) {
-        if (clpSupply[asset] == 0) return 0;
-        return (userClpBalances[asset][account] * balances[asset]) / clpSupply[asset];
-    }
-
-    function getUserBalances(
-        address[] calldata _assets,
-        address account
-    ) external view returns (uint256[] memory _balances) {
-        uint256 length = _assets.length;
-        _balances = new uint256[](length);
-        for (uint256 i = 0; i < length; i++) {
-            _balances[i] = getUserBalance(_assets[i], account);
-        }
-        return _balances;
-    }
-
-    function getClpSupply(address asset) public view returns (uint256) {
-        return clpSupply[asset];
-    }
-
-    function getUserClpBalance(address asset, address account) public view returns (uint256) {
-        return userClpBalances[asset][account];
-    }
-
     function getLastDeposited(address asset, address user) external view returns (uint256) {
         return lastDeposited[asset][user];
     }
@@ -149,5 +115,39 @@ contract PoolStore is Roles {
 
     function getLastPaid(address asset) external view returns (uint256) {
         return lastPaid[asset];
+    }
+
+    function getBalances(address[] calldata _assets) external view returns (uint256[] memory _balances) {
+        uint256 length = _assets.length;
+        _balances = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _balances[i] = balances[_assets[i]];
+        }
+        return _balances;
+    }
+
+    function getUserBalances(
+        address[] calldata _assets,
+        address account
+    ) external view returns (uint256[] memory _balances) {
+        uint256 length = _assets.length;
+        _balances = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _balances[i] = getUserBalance(_assets[i], account);
+        }
+        return _balances;
+    }
+
+    function getUserBalance(address asset, address account) public view returns (uint256) {
+        if (clpSupply[asset] == 0) return 0;
+        return (userClpBalances[asset][account] * balances[asset]) / clpSupply[asset];
+    }
+
+    function getClpSupply(address asset) public view returns (uint256) {
+        return clpSupply[asset];
+    }
+
+    function getUserClpBalance(address asset, address account) public view returns (uint256) {
+        return userClpBalances[asset][account];
     }
 }

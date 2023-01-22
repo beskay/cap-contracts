@@ -14,6 +14,12 @@ contract Pool is Roles {
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
 
+    DataStore public DS;
+
+    AssetStore public assetStore;
+    FundStore public fundStore;
+    PoolStore public poolStore;
+
     event PoolDeposit(
         address indexed user,
         address indexed asset,
@@ -49,12 +55,6 @@ contract Pool is Roles {
         uint256 poolBalance,
         uint256 bufferBalance
     );
-
-    DataStore public DS;
-
-    AssetStore public assetStore;
-    FundStore public fundStore;
-    PoolStore public poolStore;
 
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;

@@ -27,6 +27,24 @@ import '../utils/Roles.sol';
 contract Processor is Roles {
     uint256 public constant BPS_DIVIDER = 10000;
 
+    DataStore public DS;
+
+    AssetStore public assetStore;
+    FundStore public fundStore;
+    MarketStore public marketStore;
+    OrderStore public orderStore;
+    PoolStore public poolStore;
+    PositionStore public positionStore;
+    RiskStore public riskStore;
+
+    Funding public funding;
+    Orders public orders;
+    Pool public pool;
+    Positions public positions;
+
+    Chainlink public chainlink;
+    IPyth public pyth;
+
     event LiquidationError(address user, address asset, string market, uint256 price, string reason);
 
     event PositionLiquidated(
@@ -52,23 +70,10 @@ contract Processor is Roles {
         string reason
     );
 
-    DataStore public DS;
-
-    AssetStore public assetStore;
-    FundStore public fundStore;
-    MarketStore public marketStore;
-    OrderStore public orderStore;
-    PoolStore public poolStore;
-    PositionStore public positionStore;
-    RiskStore public riskStore;
-
-    Funding public funding;
-    Orders public orders;
-    Pool public pool;
-    Positions public positions;
-
-    Chainlink public chainlink;
-    IPyth public pyth;
+    modifier ifNotPaused() {
+        require(!orderStore.isProcessingPaused(), '!paused');
+        _;
+    }
 
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
@@ -88,11 +93,6 @@ contract Processor is Roles {
         positions = Positions(DS.getAddress('Positions'));
         chainlink = Chainlink(DS.getAddress('Chainlink'));
         pyth = IPyth(DS.getAddress('Pyth'));
-    }
-
-    modifier ifNotPaused() {
-        require(!orderStore.isProcessingPaused(), '!paused');
-        _;
     }
 
     // ORDER EXECUTION

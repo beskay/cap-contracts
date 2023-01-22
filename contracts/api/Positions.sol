@@ -26,6 +26,23 @@ contract Positions is Roles {
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
 
+    DataStore public DS;
+
+    AssetStore public assetStore;
+    FundStore public fundStore;
+    FundingStore public fundingStore;
+    MarketStore public marketStore;
+    OrderStore public orderStore;
+    PoolStore public poolStore;
+    PositionStore public positionStore;
+    RiskStore public riskStore;
+    StakingStore public stakingStore;
+
+    Funding public funding;
+    Pool public pool;
+
+    Chainlink public chainlink;
+
     event PositionIncreased(
         uint32 indexed orderId,
         address indexed user,
@@ -90,22 +107,10 @@ contract Positions is Roles {
         bool isLiquidation
     );
 
-    DataStore public DS;
-
-    AssetStore public assetStore;
-    FundStore public fundStore;
-    FundingStore public fundingStore;
-    MarketStore public marketStore;
-    OrderStore public orderStore;
-    PoolStore public poolStore;
-    PositionStore public positionStore;
-    RiskStore public riskStore;
-    StakingStore public stakingStore;
-
-    Funding public funding;
-    Pool public pool;
-
-    Chainlink public chainlink;
+    modifier ifNotPaused() {
+        require(!orderStore.areNewOrdersPaused(), '!paused');
+        _;
+    }
 
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
@@ -124,11 +129,6 @@ contract Positions is Roles {
         funding = Funding(DS.getAddress('Funding'));
         pool = Pool(DS.getAddress('Pool'));
         chainlink = Chainlink(DS.getAddress('Chainlink'));
-    }
-
-    modifier ifNotPaused() {
-        require(!orderStore.areNewOrdersPaused(), '!paused');
-        _;
     }
 
     function increasePosition(uint32 orderId, uint256 price, address keeper) public onlyContract {

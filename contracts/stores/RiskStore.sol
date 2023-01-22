@@ -41,12 +41,6 @@ contract RiskStore is Roles {
 
     // Checkers
 
-    function checkMaxOI(address asset, string calldata market, uint256 size) external view {
-        uint256 OI = PositionStore(DS.getAddress('PositionStore')).getOI(asset, market);
-        uint256 _maxOI = maxOI[market][asset];
-        if (_maxOI > 0 && OI + size > _maxOI) revert('!max-oi');
-    }
-
     function checkPoolDrawdown(address asset, int256 pnl) external onlyContract {
         // pnl > 0 means trader win
 
@@ -63,10 +57,20 @@ contract RiskStore is Roles {
         require(uint256(profitTracker) < (profitLimit * poolAvailable) / BPS_DIVIDER, '!pool-risk');
     }
 
+    function checkMaxOI(address asset, string calldata market, uint256 size) external view {
+        uint256 OI = PositionStore(DS.getAddress('PositionStore')).getOI(asset, market);
+        uint256 _maxOI = maxOI[market][asset];
+        if (_maxOI > 0 && OI + size > _maxOI) revert('!max-oi');
+    }
+
     // getters
 
     function getMaxOI(string calldata market, address asset) external view returns (uint256) {
         return maxOI[market][asset];
+    }
+
+    function getPoolProfitLimit(address asset) external view returns (uint256) {
+        return poolProfitLimit[asset];
     }
 
     function getPoolProfitTracker(address asset) public view returns (int256) {
@@ -84,9 +88,5 @@ contract RiskStore is Roles {
             }
         }
         return profitTracker;
-    }
-
-    function getPoolProfitLimit(address asset) external view returns (uint256) {
-        return poolProfitLimit[asset];
     }
 }

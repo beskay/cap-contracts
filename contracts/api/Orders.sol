@@ -25,6 +25,16 @@ contract Orders is Roles {
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
 
+    DataStore public DS;
+
+    AssetStore public assetStore;
+    FundStore public fundStore;
+    MarketStore public marketStore;
+    OrderStore public orderStore;
+    RiskStore public riskStore;
+
+    Chainlink public chainlink;
+
     event OrderCreated(
         uint32 indexed orderId,
         address indexed user,
@@ -43,15 +53,10 @@ contract Orders is Roles {
 
     event OrderCancelled(uint256 indexed orderId, address indexed user, string reason);
 
-    DataStore public DS;
-
-    AssetStore public assetStore;
-    FundStore public fundStore;
-    MarketStore public marketStore;
-    OrderStore public orderStore;
-    RiskStore public riskStore;
-
-    Chainlink public chainlink;
+    modifier ifNotPaused() {
+        require(!orderStore.areNewOrdersPaused(), '!paused');
+        _;
+    }
 
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
@@ -64,11 +69,6 @@ contract Orders is Roles {
         orderStore = OrderStore(DS.getAddress('OrderStore'));
         riskStore = RiskStore(DS.getAddress('RiskStore'));
         chainlink = Chainlink(DS.getAddress('Chainlink'));
-    }
-
-    modifier ifNotPaused() {
-        require(!orderStore.areNewOrdersPaused(), '!paused');
-        _;
     }
 
     function submitOrder(

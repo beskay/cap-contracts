@@ -12,12 +12,6 @@ contract Staking is Roles {
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
 
-    event CAPStaked(address indexed user, uint256 amount);
-
-    event CAPUnstaked(address indexed user, uint256 amount);
-
-    event CollectedReward(address indexed user, address indexed asset, uint256 amount);
-
     DataStore public DS;
 
     AssetStore public assetStore;
@@ -25,6 +19,12 @@ contract Staking is Roles {
     StakingStore public stakingStore;
 
     address public cap;
+
+    event CAPStaked(address indexed user, uint256 amount);
+
+    event CAPUnstaked(address indexed user, uint256 amount);
+
+    event CollectedReward(address indexed user, address indexed asset, uint256 amount);
 
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;

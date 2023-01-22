@@ -91,7 +91,7 @@ contract OrderStore is Roles {
 
     // Getters
 
-    function get(uint32 orderId) public view returns (Order memory) {
+    function get(uint32 orderId) external view returns (Order memory) {
         return orders[orderId];
     }
 
