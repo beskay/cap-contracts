@@ -10,7 +10,7 @@ async function main() {
 
   const provider = ethers.provider;
 
-  const [signer, _oracle] = await ethers.getSigners();
+  const [signer] = await ethers.getSigners();
 
   // Account
   const account = await signer.getAddress();
