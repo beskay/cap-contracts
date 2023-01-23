@@ -8,23 +8,21 @@ contract StakingStore is Roles {
 
     uint256 public feeShare = 500;
 
-    mapping(address => uint256) private balances; // account => cap amount
     uint256 totalSupply; // cap staked
+
+    mapping(address => uint256) private balances; // account => cap amount
+
+    mapping(address => uint256) private rewardPerTokenSum;
+    mapping(address => uint256) private pendingReward;
+    mapping(address => mapping(address => uint256)) private previousReward;
+    mapping(address => mapping(address => uint256)) private claimableReward;
 
     constructor(RoleStore rs) Roles(rs) {}
 
+    // Gov methods
+
     function setFeeShare(uint256 bps) external onlyGov {
         feeShare = bps;
-    }
-
-    // Getters
-
-    function getTotalSupply() public view returns (uint256) {
-        return totalSupply;
-    }
-
-    function getBalance(address account) public view returns (uint256) {
-        return balances[account];
     }
 
     // Setters
@@ -44,15 +42,6 @@ contract StakingStore is Roles {
     function decrementBalance(address user, uint256 amount) external onlyContract {
         balances[user] = balances[user] <= amount ? 0 : balances[user] - amount;
     }
-
-    // rewards below
-
-    mapping(address => uint256) private rewardPerTokenSum;
-    mapping(address => uint256) private pendingReward;
-    mapping(address => mapping(address => uint256)) private previousReward;
-    mapping(address => mapping(address => uint256)) private claimableReward;
-
-    // Setters
 
     function incrementPendingReward(address asset, uint256 amount) external onlyContract {
         pendingReward[asset] += amount;
@@ -77,6 +66,14 @@ contract StakingStore is Roles {
     }
 
     // Getters
+
+    function getTotalSupply() public view returns (uint256) {
+        return totalSupply;
+    }
+
+    function getBalance(address account) public view returns (uint256) {
+        return balances[account];
+    }
 
     function getPendingReward(address asset) external view returns (uint256) {
         return pendingReward[asset];

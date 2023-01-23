@@ -35,6 +35,8 @@ contract PositionStore is Roles {
 
     constructor(RoleStore rs) Roles(rs) {}
 
+    // Gov methods
+
     function setRemoveMarginBuffer(uint256 bps) external onlyGov {
         removeMarginBuffer = bps;
     }
@@ -43,6 +45,8 @@ contract PositionStore is Roles {
         require(bps <= MAX_KEEPER_FEE_SHARE, '!keeper-fee-share');
         keeperFeeShare = bps;
     }
+
+    // Setters
 
     function incrementOI(address asset, string calldata market, uint256 amount, bool isLong) external onlyContract {
         OI[asset][market] += amount;
@@ -61,20 +65,6 @@ contract PositionStore is Roles {
             OIShort[asset][market] = OIShort[asset][market] <= amount ? 0 : OIShort[asset][market] - amount;
         }
     }
-
-    function getOI(address asset, string calldata market) external view returns (uint256) {
-        return OI[asset][market];
-    }
-
-    function getOILong(address asset, string calldata market) external view returns (uint256) {
-        return OILong[asset][market];
-    }
-
-    function getOIShort(address asset, string calldata market) external view returns (uint256) {
-        return OIShort[asset][market];
-    }
-
-    // Setters
 
     function addOrUpdate(Position memory position) external onlyContract {
         bytes32 key = _getPositionKey(position.user, position.asset, position.market);
@@ -149,6 +139,18 @@ contract PositionStore is Roles {
             _positions[i] = positions[positionKeysForUser[user].at(i)];
         }
         return _positions;
+    }
+
+    function getOI(address asset, string calldata market) external view returns (uint256) {
+        return OI[asset][market];
+    }
+
+    function getOILong(address asset, string calldata market) external view returns (uint256) {
+        return OILong[asset][market];
+    }
+
+    function getOIShort(address asset, string calldata market) external view returns (uint256) {
+        return OIShort[asset][market];
     }
 
     // Internal
