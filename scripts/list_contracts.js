@@ -8,7 +8,7 @@ async function main() {
 
   const provider = ethers.provider;
 
-  const dataStoreAddress = "0x360B0B2b3391FD65D8279E2231C80D9De767ad7b";
+  const dataStoreAddress = "0xe9d3C9bB9A2047E7467f4770dfA0d62E2a411792";
   const dataStore = await (await ethers.getContractFactory("DataStore")).attach(dataStoreAddress);
 
   // await dataStore.setAddress("AssetStore", assetStore.address, true);

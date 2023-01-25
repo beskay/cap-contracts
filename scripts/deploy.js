@@ -13,6 +13,9 @@ async function main() {
 
   console.log('Signer', await signer.getAddress());
 
+  // Treasury
+  const treasury = {address: "0x764E7f8798D8193bEd69030AE66eb304968C3F93"}; // on arbitrum
+
   // Pyth
   const pyth = {address: "0xff1a0f4744e8582DF1aE09D5611b887B6a12925C"}; // on arbitrum
 
@@ -173,6 +176,7 @@ async function main() {
   await dataStore.setAddress("USDC", usdc.address, true);
   await dataStore.setAddress("Chainlink", chainlink.address, true);
   await dataStore.setAddress("Pyth", pyth.address, true);
+  await dataStore.setAddress("treasury", treasury.address, true);
   console.log(`Data addresses configured.`);
 
   // Link
