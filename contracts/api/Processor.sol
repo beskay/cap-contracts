@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 // import 'hardhat/console.sol';
 
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@pythnetwork/pyth-sdk-solidity/IPyth.sol';
 import '@pythnetwork/pyth-sdk-solidity/PythStructs.sol';
@@ -24,7 +25,7 @@ import './Positions.sol';
 import '../utils/Chainlink.sol';
 import '../utils/Roles.sol';
 
-contract Processor is Roles {
+contract Processor is Roles, ReentrancyGuard {
     uint256 public constant BPS_DIVIDER = 10000;
 
     event LiquidationError(address user, address asset, string market, uint256 price, string reason);
@@ -98,13 +99,13 @@ contract Processor is Roles {
     // ORDER EXECUTION
 
     // Anyone can call this
-    function selfExecuteOrder(uint256 orderId) external ifNotPaused {
+    function selfExecuteOrder(uint256 orderId) external nonReentrant ifNotPaused {
         (bool status, string memory reason) = _executeOrder(orderId, 0, true, address(0));
         require(status, reason);
     }
 
     // Orders executed by keeper (anyone) with Pyth priceUpdateData
-    function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable ifNotPaused {
+    function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable nonReentrant ifNotPaused {
         // updates price for all submitted price feeds
         uint256 fee = pyth.getUpdateFee(priceUpdateData);
         require(msg.value >= fee, '!fee');
@@ -251,7 +252,7 @@ contract Processor is Roles {
     // POSITION LIQUIDATION
 
     // Anyone can call this
-    function selfLiquidatePosition(address user, address asset, string memory market) external ifNotPaused {
+    function selfLiquidatePosition(address user, address asset, string memory market) external nonReentrant ifNotPaused {
         (bool status, string memory reason) = _liquidatePosition(user, asset, market, 0, true, address(0));
         require(status, reason);
     }
@@ -261,7 +262,7 @@ contract Processor is Roles {
         address[] calldata assets,
         string[] calldata markets,
         bytes[] calldata priceUpdateData
-    ) external payable ifNotPaused {
+    ) external payable nonReentrant ifNotPaused {
         // updates price for all submitted price feeds
         uint256 fee = pyth.getUpdateFee(priceUpdateData);
         require(msg.value >= fee, '!fee');
