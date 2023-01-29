@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// import 'hardhat/console.sol';
+pragma solidity ^0.8.13;
 
 import '../stores/AssetStore.sol';
 import '../stores/DataStore.sol';
@@ -126,18 +124,17 @@ contract Pool is Roles {
     }
 
     function deposit(address asset, uint256 amount) public payable {
-        //console.log(1);
-
-        //console.log(2);
         require(amount > 0, '!amount');
-        //console.log(3);
         require(assetStore.isSupported(asset), '!asset');
-        //console.log(4);
+
+        address user = msg.sender;
 
         uint256 balance = poolStore.getBalance(asset);
+        uint256 clpSupply = poolStore.getClpSupply(asset);
+        uint256 clpAmount = balance == 0 || clpSupply == 0 ? amount : (amount * clpSupply) / balance;
 
-        //console.log(5);
-        address user = msg.sender;
+        poolStore.incrementUserClpBalance(asset, user, clpAmount);
+        poolStore.incrementBalance(asset, amount);
 
         if (asset == address(0)) {
             amount = msg.value;
@@ -145,19 +142,6 @@ contract Pool is Roles {
         } else {
             fundStore.transferIn(asset, user, amount);
         }
-
-        //console.log(6);
-
-        uint256 clpSupply = poolStore.getClpSupply(asset);
-        //console.log(7);
-        uint256 clpAmount = balance == 0 || clpSupply == 0 ? amount : (amount * clpSupply) / balance;
-
-        //console.log(8);
-
-        poolStore.incrementUserClpBalance(asset, user, clpAmount);
-        //console.log(9);
-        poolStore.incrementBalance(asset, amount);
-        //console.log(10);
 
         emit PoolDeposit(user, asset, amount, clpAmount, poolStore.getBalance(asset));
     }

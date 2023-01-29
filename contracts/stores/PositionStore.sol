@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
@@ -20,7 +20,7 @@ contract PositionStore is Roles {
         uint256 timestamp;
     }
 
-    uint256 public MAX_KEEPER_FEE_SHARE = 2000; // 20%
+    uint256 public constant MAX_KEEPER_FEE_SHARE = 2000; // 20%
 
     uint256 public removeMarginBuffer = 1000;
     uint256 public keeperFeeShare = 500;

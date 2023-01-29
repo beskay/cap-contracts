@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// import 'hardhat/console.sol';
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/utils/Address.sol';
 
@@ -147,28 +145,19 @@ contract Orders is Roles {
     function _submitOrder(OrderStore.Order memory params) internal returns (uint256, uint256) {
         address user = msg.sender;
 
-        // console.log(1);
-
         // Validations
-
         require(params.orderType == 0 || params.orderType == 1 || params.orderType == 2, '!order-type');
 
         if (params.orderType != 0) {
             require(params.price > 0, '!price');
         }
 
-        // console.log(2);
-
         AssetStore.Asset memory asset = assetStore.get(params.asset);
         require(asset.minSize > 0, '!asset-exists');
         require(params.size >= asset.minSize, '!min-size');
 
-        // console.log(3);
-
         MarketStore.Market memory market = marketStore.get(params.market);
         require(market.maxLeverage > 0, '!market-exists');
-
-        // console.log(5);
 
         if (params.expiry > 0) {
             require(params.expiry >= block.timestamp, '!expiry-value');
@@ -180,13 +169,9 @@ contract Orders is Roles {
             );
         }
 
-        // console.log(6);
-
         if (params.cancelOrderId > 0) {
             require(orderStore.isUserOrder(params.cancelOrderId, user), '!user-oco');
         }
-
-        // console.log(7);
 
         uint256 fee = (params.size * market.fee) / BPS_DIVIDER;
         uint256 valueConsumed;
@@ -203,10 +188,8 @@ contract Orders is Roles {
             require(leverage >= UNIT, '!min-leverage');
             require(leverage <= market.maxLeverage * UNIT, '!max-leverage');
 
-            // console.log(71);
             // Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until keeper picks up the order. That is why maxOI is checked on processing as well, which is fail safe. This check is more of preemptive for user to not submit an order
             riskStore.checkMaxOI(params.asset, params.market, params.size);
-            // console.log(72);
 
             // Transfer fee and margin to store
             valueConsumed = params.margin + fee;
@@ -216,11 +199,7 @@ contract Orders is Roles {
             } else {
                 fundStore.transferIn(params.asset, user, valueConsumed);
             }
-
-            // console.log(73);
         }
-
-        // console.log(8);
 
         // Add order to store
 
@@ -229,8 +208,6 @@ contract Orders is Roles {
         params.timestamp = block.timestamp;
 
         uint256 orderId = orderStore.add(params);
-
-        // console.log(9);
 
         emit OrderCreated(
             orderId,

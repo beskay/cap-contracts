@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// import 'hardhat/console.sol';
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
@@ -105,7 +103,10 @@ contract Processor is Roles, ReentrancyGuard {
     }
 
     // Orders executed by keeper (anyone) with Pyth priceUpdateData
-    function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable nonReentrant ifNotPaused {
+    function executeOrders(
+        uint256[] calldata orderIds,
+        bytes[] calldata priceUpdateData
+    ) external payable nonReentrant ifNotPaused {
         // updates price for all submitted price feeds
         uint256 fee = pyth.getUpdateFee(priceUpdateData);
         require(msg.value >= fee, '!fee');
@@ -142,28 +143,20 @@ contract Processor is Roles, ReentrancyGuard {
         bool withChainlink,
         address keeper
     ) internal returns (bool, string memory) {
-        // console.log(1);
-
         OrderStore.Order memory order = orderStore.get(orderId);
         if (order.size == 0) {
             return (false, '!order');
         }
 
-        // console.log(3);
-
         if (order.expiry > 0 && order.expiry <= block.timestamp) {
             return (false, '!expired');
         }
-
-        // console.log(4);
 
         // cancel if order is too old
         uint256 ttl = block.timestamp - order.timestamp;
         if ((order.orderType == 0 && ttl > orderStore.maxMarketOrderTTL()) || ttl > orderStore.maxTriggerOrderTTL()) {
             return (false, '!too-old');
         }
-
-        // console.log(6);
 
         MarketStore.Market memory market = marketStore.get(order.market);
 
@@ -182,20 +175,14 @@ contract Processor is Roles, ReentrancyGuard {
             price = chainlinkPrice;
         }
 
-        // console.log(7);
-
         if (price == 0) {
             return (false, '!no-price');
         }
-
-        // console.log(market.maxDeviation, chainlinkPrice, price);
 
         // Bound provided price with chainlink
         if (!_boundPriceWithChainlink(market.maxDeviation, chainlinkPrice, price)) {
             return (true, '!chainlink-deviation'); // returns true so as not to trigger order cancellation
         }
-
-        // console.log(8);
 
         // Is trigger order executable at provided price?
         if (order.orderType != 0) {
@@ -215,8 +202,6 @@ contract Processor is Roles, ReentrancyGuard {
             }
         }
 
-        // console.log(9);
-
         // OCO
         if (order.cancelOrderId > 0) {
             try orders.cancelOrder(order.cancelOrderId, '!oco') {} catch Error(string memory reason) {
@@ -226,8 +211,6 @@ contract Processor is Roles, ReentrancyGuard {
 
         // Check if there is a position
         PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
-
-        // console.log(10);
 
         bool doAdd = !order.isReduceOnly && (position.size == 0 || order.isLong == position.isLong);
         bool doReduce = position.size > 0 && order.isLong != position.isLong;
@@ -244,15 +227,17 @@ contract Processor is Roles, ReentrancyGuard {
             return (false, '!reduce');
         }
 
-        // console.log(11);
-
         return (true, '');
     }
 
     // POSITION LIQUIDATION
 
     // Anyone can call this
-    function selfLiquidatePosition(address user, address asset, string memory market) external nonReentrant ifNotPaused {
+    function selfLiquidatePosition(
+        address user,
+        address asset,
+        string memory market
+    ) external nonReentrant ifNotPaused {
         (bool status, string memory reason) = _liquidatePosition(user, asset, market, 0, true, address(0));
         require(status, reason);
     }

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// import 'hardhat/console.sol';
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
@@ -132,26 +130,16 @@ contract Positions is Roles {
     }
 
     function increasePosition(uint256 orderId, uint256 price, address keeper) public onlyContract {
-        // console.log(1);
-
         OrderStore.Order memory order = orderStore.get(orderId);
         riskStore.checkMaxOI(order.asset, order.market, order.size);
 
-        // console.log(2);
-
         PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
-
-        // console.log(3);
-
-        // console.log(4);
 
         creditFee(orderId, order.user, order.asset, order.market, order.fee, false, keeper);
 
         positionStore.incrementOI(order.asset, order.market, order.size, position.isLong);
 
         funding.updateFundingTracker(order.asset, order.market);
-
-        // console.log(5);
 
         uint256 averagePrice = (position.size * position.price + order.size * price) / (position.size + order.size);
 
@@ -164,19 +152,13 @@ contract Positions is Roles {
             position.fundingTracker = fundingStore.getFundingTracker(order.asset, order.market);
         }
 
-        // console.log(6);
-
         position.size += order.size;
         position.margin += order.margin;
         position.price = averagePrice;
 
         positionStore.addOrUpdate(position);
 
-        // console.log(9);
-
         orderStore.remove(orderId);
-
-        // console.log(10);
 
         emit PositionIncreased(
             orderId,
