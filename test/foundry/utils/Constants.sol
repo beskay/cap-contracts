@@ -14,9 +14,15 @@ contract Constants is Test {
     uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant USDC_DECIMALS = 10 ** 6;
 
-    // Prices
-    uint256 public constant ETH_PRICE = 1500;
-    uint256 public constant BTC_PRICE = 20000;
+    // Prices for test orders
+    uint256 public constant ETH_PRICE = 1000;
+    uint256 public constant BTC_PRICE = 10000;
+
+    uint256 public constant ETH_SL_PRICE = 950;
+    uint256 public constant BTC_SL_PRICE = 9500;
+
+    uint256 public constant ETH_TP_PRICE = 1050;
+    uint256 public constant BTC_TP_PRICE = 10500;
 
     // Chainlink price feeds
     address public linkUSDC = makeAddr('USDC');

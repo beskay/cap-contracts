@@ -58,6 +58,10 @@ contract Setup is Constants {
     MockToken public cap;
     MockToken public usdc;
 
+    // Pyth price data
+    bytes priceFeedDataETH;
+    bytes priceFeedDataBTC;
+
     // Test orders
     OrderStore.Order public ethLong =
         OrderStore.Order({
@@ -101,7 +105,7 @@ contract Setup is Constants {
             market: 'ETH-USD',
             margin: 1 ether,
             size: 5 ether,
-            price: 1450 * UNIT, // limit order
+            price: 950 * UNIT, // limit order
             fee: 0,
             isLong: true, // long
             orderType: 1,
@@ -118,7 +122,7 @@ contract Setup is Constants {
             market: 'ETH-USD',
             margin: 1 ether,
             size: 5 ether,
-            price: 1590 * UNIT, // limit order
+            price: 1050 * UNIT, // limit order
             fee: 0,
             isLong: false, // short
             orderType: 1,
@@ -135,7 +139,7 @@ contract Setup is Constants {
             market: 'ETH-USD',
             margin: 2 ether,
             size: 5 ether,
-            price: 1610 * UNIT, // stop order
+            price: 1100 * UNIT, // stop order
             fee: 0,
             isLong: true, // long
             orderType: 2,
@@ -152,7 +156,7 @@ contract Setup is Constants {
             market: 'ETH-USD',
             margin: 3 ether,
             size: 10 ether,
-            price: 1344 * UNIT, // stop order
+            price: 900 * UNIT, // stop order
             fee: 0,
             isLong: false, // short
             orderType: 2,
@@ -197,6 +201,9 @@ contract Setup is Constants {
         });
 
     function setUp() public virtual {
+        // fast forward to year 2023
+        skip(1672531200);
+
         // Mock Tokens - CAP, USDC
         cap = new MockToken('CAP', 'CAP', 18);
         console.log('Cap token deployed to', address(cap));
@@ -341,6 +348,27 @@ contract Setup is Constants {
         chainlink.setMarketPrice(linkETH, ETH_PRICE * UNIT);
         chainlink.setMarketPrice(linkBTC, BTC_PRICE * UNIT);
         chainlink.setMarketPrice(linkUSDC, 1 * UNIT);
+
+        // Pyth price feed data
+        priceFeedDataETH = pyth.createPriceFeedUpdateData(
+            pythETH, // price feed ID
+            int64(uint64(ETH_PRICE * 10 ** 8)), // price
+            uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
+            int32(-8), // exponent
+            int64(uint64(ETH_PRICE * 10 ** 8)), // ema price
+            uint64(10 ** 8), // confidence interval
+            uint64(block.timestamp) // publishTime
+        );
+        priceFeedDataBTC = pyth.createPriceFeedUpdateData(
+            pythBTC, // price feed ID
+            int64(uint64(BTC_PRICE * 10 ** 8)), // price
+            uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
+            int32(-8), // exponent
+            int64(uint64(BTC_PRICE * 10 ** 8)), // ema price
+            uint64(10 ** 8), // confidence interval
+            uint64(block.timestamp) // publishTime
+        );
+
         console.log('Prices configured.');
 
         // Markets
@@ -392,6 +420,7 @@ contract Setup is Constants {
 
         // To user
         vm.startPrank(user);
+        usdc.mint(100_000 * USDC_DECIMALS);
         usdc.approve(address(fundStore), MAX_UINT256);
         cap.mint(1000 * UNIT);
         cap.approve(address(fundStore), MAX_UINT256);
@@ -399,6 +428,7 @@ contract Setup is Constants {
 
         // To user2
         vm.startPrank(user2);
+        usdc.mint(100_000 * USDC_DECIMALS);
         usdc.approve(address(fundStore), MAX_UINT256);
         cap.mint(1000 * UNIT);
         cap.approve(address(fundStore), MAX_UINT256);
