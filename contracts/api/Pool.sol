@@ -124,6 +124,8 @@ contract Pool is Roles {
     }
 
     function deposit(address asset, uint256 amount) public payable {
+        if (asset == address(0)) amount = msg.value;
+
         require(amount > 0, '!amount');
         require(assetStore.isSupported(asset), '!asset');
 
@@ -137,7 +139,6 @@ contract Pool is Roles {
         poolStore.incrementBalance(asset, amount);
 
         if (asset == address(0)) {
-            amount = msg.value;
             fundStore.transferIn{value: amount}(asset, user, amount);
         } else {
             fundStore.transferIn(asset, user, amount);
