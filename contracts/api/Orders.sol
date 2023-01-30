@@ -260,7 +260,9 @@ contract Orders is Roles {
 
         orderStore.remove(orderId);
 
-        fundStore.transferOut(order.asset, order.user, order.margin + order.fee);
+        if (!order.isReduceOnly) {
+            fundStore.transferOut(order.asset, order.user, order.margin + order.fee);
+        }
 
         emit OrderCancelled(orderId, order.user, reason);
     }
