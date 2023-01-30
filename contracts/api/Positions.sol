@@ -147,7 +147,7 @@ contract Positions is Roles {
 
         creditFee(orderId, order.user, order.asset, order.market, order.fee, false, keeper);
 
-        positionStore.incrementOI(order.asset, order.market, order.size, position.isLong);
+        positionStore.incrementOI(order.asset, order.market, order.size, order.isLong);
 
         funding.updateFundingTracker(order.asset, order.market);
 
