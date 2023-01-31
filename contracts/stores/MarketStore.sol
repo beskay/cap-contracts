@@ -64,9 +64,9 @@ contract MarketStore is Roles {
 
     /// @notice Returns market struct array of specified markets
     /// @param _markets Array of market strings, e.g. ["ETH-USD", "BTC-USD"]
-    function getMany(string[] calldata _markets) external view returns (Market[] memory _marketInfos) {
+    function getMany(string[] calldata _markets) external view returns (Market[] memory) {
         uint256 length = _markets.length;
-        _marketInfos = new Market[](length);
+        Market[] memory _marketInfos = new Market[](length);
         for (uint256 i = 0; i < length; i++) {
             _marketInfos[i] = markets[_markets[i]];
         }

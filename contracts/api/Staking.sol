@@ -117,12 +117,9 @@ contract Staking is Roles {
             UNIT;
     }
 
-    function getClaimableRewards(
-        address[] calldata assets,
-        address account
-    ) external view returns (uint256[] memory _rewards) {
+    function getClaimableRewards(address[] calldata assets, address account) external view returns (uint256[] memory) {
         uint256 length = assets.length;
-        _rewards = new uint256[](length);
+        uint256[] memory _rewards = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
             _rewards[i] = getClaimableReward(assets[i], account);
         }

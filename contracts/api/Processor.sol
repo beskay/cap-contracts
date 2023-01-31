@@ -169,7 +169,7 @@ contract Processor is Roles, ReentrancyGuard {
             if (!market.allowChainlinkExecution) {
                 return (false, '!chainlink-not-allowed');
             }
-            if (order.timestamp >= block.timestamp - orderStore.chainlinkCooldown()) {
+            if (order.timestamp > block.timestamp - orderStore.chainlinkCooldown()) {
                 return (false, '!chainlink-cooldown');
             }
             price = chainlinkPrice;
@@ -357,12 +357,15 @@ contract Processor is Roles, ReentrancyGuard {
 
     // -- Utils -- //
 
-    function _getPythPrice(bytes32 priceFeedId) internal view returns (uint256 price, uint256 publishTime) {
+    function _getPythPrice(bytes32 priceFeedId) internal view returns (uint256, uint256) {
         // It will revert if the price is older than maxAge
         PythStructs.Price memory retrievedPrice = pyth.getPriceUnsafe(priceFeedId);
         uint256 baseConversion = 10 ** uint256(int256(18) + retrievedPrice.expo);
-        price = uint256(retrievedPrice.price * int256(baseConversion)); // 18 decimals
-        publishTime = retrievedPrice.publishTime;
+
+        uint256 price = uint256(retrievedPrice.price * int256(baseConversion)); // 18 decimals
+        uint256 publishTime = retrievedPrice.publishTime;
+
+        return (price, publishTime);
     }
 
     function _getUsdAmount(address asset, uint256 amount) internal view returns (uint256) {
