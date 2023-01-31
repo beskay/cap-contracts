@@ -3,20 +3,17 @@ pragma solidity ^0.8.7;
 
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 
-import '../utils/Governable.sol';
-
-contract Chainlink is Governable {
+/// @title Chainlink
+/// @notice Consumes price data
+contract Chainlink {
     // -- Constants -- //
-
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant GRACE_PERIOD_TIME = 3600;
 
     // -- Variables -- //
-
     AggregatorV3Interface internal sequencerUptimeFeed;
 
     // -- Errors -- //
-
     error SequencerDown();
     error GracePeriodNotOver();
 
@@ -26,11 +23,12 @@ contract Chainlink is Governable {
      */
 
     // -- Constructor -- //
-
-    constructor() Governable() {
+    constructor() {
+        // Arbitrum L2 sequencer feed
         sequencerUptimeFeed = AggregatorV3Interface(0xFdB631F5EE196F0ed6FAa767959853A9F217697D);
     }
 
+    // Returns the latest price
     function getPrice(address feed) public view returns (uint256) {
         if (feed == address(0)) return 0;
 
