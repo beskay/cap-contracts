@@ -182,6 +182,23 @@ contract Setup is Constants {
             expiry: 0,
             cancelOrderId: 0
         });
+    OrderStore.Order public btcLongAssetUSDC =
+        OrderStore.Order({
+            orderId: 0,
+            user: address(0),
+            asset: address(0), // will be set after contract deployment
+            market: 'BTC-USD',
+            margin: 1000 * USDC_DECIMALS,
+            size: 5000 * USDC_DECIMALS,
+            price: 0, // market order
+            fee: 0,
+            isLong: true, // long
+            orderType: 0,
+            isReduceOnly: false,
+            timestamp: 0,
+            expiry: 0,
+            cancelOrderId: 0
+        });
     OrderStore.Order public reduceOnly =
         OrderStore.Order({
             orderId: 0,
@@ -441,5 +458,8 @@ contract Setup is Constants {
         vm.deal(user, 10 ether);
         vm.deal(user2, 10 ether);
         console.log('User accounts funded.');
+
+        // set USDC address of orders
+        btcLongAssetUSDC.asset = address(usdc);
     }
 }
