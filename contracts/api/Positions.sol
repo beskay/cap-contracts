@@ -20,6 +20,10 @@ import './Pool.sol';
 import '../utils/Chainlink.sol';
 import '../utils/Roles.sol';
 
+/**
+ * @title  Positions
+ * @notice ...
+ */
 contract Positions is Roles {
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
@@ -105,10 +109,19 @@ contract Positions is Roles {
 
     Chainlink public chainlink;
 
+    /// @dev Initializes DataStore address
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
     }
 
+    /// @dev Reverts if new orders are paused
+    modifier ifNotPaused() {
+        require(!orderStore.areNewOrdersPaused(), '!paused');
+        _;
+    }
+
+    /// @notice Initializes protocol contracts
+    /// @dev Only callable by governance
     function link() external onlyGov {
         assetStore = AssetStore(DS.getAddress('AssetStore'));
         fundStore = FundStore(payable(DS.getAddress('FundStore')));
@@ -124,16 +137,11 @@ contract Positions is Roles {
         chainlink = Chainlink(DS.getAddress('Chainlink'));
     }
 
-    modifier ifNotPaused() {
-        require(!orderStore.areNewOrdersPaused(), '!paused');
-        _;
-    }
-
     function increasePosition(uint256 orderId, uint256 price, address keeper) public onlyContract {
         OrderStore.Order memory order = orderStore.get(orderId);
         riskStore.checkMaxOI(order.asset, order.market, order.size);
 
-        PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
+        PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
 
         creditFee(orderId, order.user, order.asset, order.market, order.fee, false, keeper);
 
@@ -179,7 +187,7 @@ contract Positions is Roles {
 
     function decreasePosition(uint256 orderId, uint256 price, address keeper) external onlyContract {
         OrderStore.Order memory order = orderStore.get(orderId);
-        PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
+        PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
 
         uint256 executedOrderSize = position.size > order.size ? order.size : position.size;
         uint256 remainingOrderSize = order.size - executedOrderSize;
@@ -315,7 +323,7 @@ contract Positions is Roles {
     function closePositionWithoutProfit(address _asset, string calldata _market) external {
         address user = msg.sender;
 
-        PositionStore.Position memory position = positionStore.get(user, _asset, _market);
+        PositionStore.Position memory position = positionStore.getPosition(user, _asset, _market);
 
         require(position.size > 0, '!position');
 
@@ -372,7 +380,7 @@ contract Positions is Roles {
     function addMargin(address asset, string calldata market, uint256 margin) external payable ifNotPaused {
         address user = msg.sender;
 
-        PositionStore.Position memory position = positionStore.get(user, asset, market);
+        PositionStore.Position memory position = positionStore.getPosition(user, asset, market);
 
         require(position.size > 0, '!position');
 
@@ -401,7 +409,7 @@ contract Positions is Roles {
         address user = msg.sender;
 
         MarketStore.Market memory marketInfo = marketStore.get(market);
-        PositionStore.Position memory position = positionStore.get(user, asset, market);
+        PositionStore.Position memory position = positionStore.getPosition(user, asset, market);
         require(position.size > 0, '!position');
         require(position.margin > margin, '!margin');
 

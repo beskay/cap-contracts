@@ -23,6 +23,10 @@ import './Positions.sol';
 import '../utils/Chainlink.sol';
 import '../utils/Roles.sol';
 
+/**
+ * @title  Processor
+ * @notice ...
+ */
 contract Processor is Roles, ReentrancyGuard {
     uint256 public constant BPS_DIVIDER = 10000;
 
@@ -69,10 +73,19 @@ contract Processor is Roles, ReentrancyGuard {
     Chainlink public chainlink;
     IPyth public pyth;
 
+    /// @dev Initializes DataStore address
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
     }
 
+    /// @dev Reverts if order processing is paused
+    modifier ifNotPaused() {
+        require(!orderStore.isProcessingPaused(), '!paused');
+        _;
+    }
+
+    /// @notice Initializes protocol contracts
+    /// @dev Only callable by governance
     function link() external onlyGov {
         assetStore = AssetStore(DS.getAddress('AssetStore'));
         fundStore = FundStore(payable(DS.getAddress('FundStore')));
@@ -87,11 +100,6 @@ contract Processor is Roles, ReentrancyGuard {
         positions = Positions(DS.getAddress('Positions'));
         chainlink = Chainlink(DS.getAddress('Chainlink'));
         pyth = IPyth(DS.getAddress('Pyth'));
-    }
-
-    modifier ifNotPaused() {
-        require(!orderStore.isProcessingPaused(), '!paused');
-        _;
     }
 
     // ORDER EXECUTION
@@ -210,7 +218,7 @@ contract Processor is Roles, ReentrancyGuard {
         }
 
         // Check if there is a position
-        PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
+        PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
 
         bool doAdd = !order.isReduceOnly && (position.size == 0 || order.isLong == position.isLong);
         bool doReduce = position.size > 0 && order.isLong != position.isLong;
@@ -287,7 +295,7 @@ contract Processor is Roles, ReentrancyGuard {
         bool withChainlink,
         address keeper
     ) internal returns (bool, string memory) {
-        PositionStore.Position memory position = positionStore.get(user, asset, market);
+        PositionStore.Position memory position = positionStore.getPosition(user, asset, market);
         if (position.size == 0) {
             return (false, '!position');
         }
@@ -362,7 +370,8 @@ contract Processor is Roles, ReentrancyGuard {
         PythStructs.Price memory retrievedPrice = pyth.getPriceUnsafe(priceFeedId);
         uint256 baseConversion = 10 ** uint256(int256(18) + retrievedPrice.expo);
 
-        uint256 price = uint256(retrievedPrice.price * int256(baseConversion)); // 18 decimals
+        // Convert price to 18 decimals
+        uint256 price = uint256(retrievedPrice.price * int256(baseConversion));
         uint256 publishTime = retrievedPrice.publishTime;
 
         return (price, publishTime);
