@@ -112,13 +112,13 @@ contract OrderStore is Roles {
         order.cancelOrderId = cancelOrderId;
     }
 
-    /// @notice Returns order with `orderId`
+    /// @notice Returns a single order
     /// @param orderId Order to get
     function get(uint256 orderId) external view returns (Order memory) {
         return orders[orderId];
     }
 
-    /// @notice Returns orders with `orderIds`
+    /// @notice Returns many orders
     /// @param orderIds Orders to get, e.g. [1, 2, 5]
     function getMany(uint256[] calldata orderIds) external view returns (Order[] memory) {
         uint256 length = orderIds.length;
@@ -189,7 +189,8 @@ contract OrderStore is Roles {
         return userOrderIds[user].length();
     }
 
-    /// @notice Returns true if order with `orderId` is from `user`
+    /// @notice Returns true if order is from `user`
+    /// @param orderId order to check
     function isUserOrder(uint256 orderId, address user) external view returns (bool) {
         return userOrderIds[user].contains(orderId);
     }
