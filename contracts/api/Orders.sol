@@ -55,6 +55,11 @@ contract Orders is Roles {
         DS = ds;
     }
 
+    modifier ifNotPaused() {
+        require(!orderStore.areNewOrdersPaused(), '!paused');
+        _;
+    }
+
     function link() external onlyGov {
         assetStore = AssetStore(DS.getAddress('AssetStore'));
         fundStore = FundStore(payable(DS.getAddress('FundStore')));
@@ -62,11 +67,6 @@ contract Orders is Roles {
         orderStore = OrderStore(DS.getAddress('OrderStore'));
         riskStore = RiskStore(DS.getAddress('RiskStore'));
         chainlink = Chainlink(DS.getAddress('Chainlink'));
-    }
-
-    modifier ifNotPaused() {
-        require(!orderStore.areNewOrdersPaused(), '!paused');
-        _;
     }
 
     function submitOrder(
@@ -162,11 +162,8 @@ contract Orders is Roles {
         if (params.expiry > 0) {
             require(params.expiry >= block.timestamp, '!expiry-value');
             uint256 ttl = params.expiry - block.timestamp;
-            require(
-                (params.orderType == 0 && ttl <= orderStore.maxMarketOrderTTL()) ||
-                    ttl <= orderStore.maxTriggerOrderTTL(),
-                '!max-expiry'
-            );
+            if (params.orderType == 0) require(ttl <= orderStore.maxMarketOrderTTL(), '!max-expiry');
+            else require(ttl <= orderStore.maxTriggerOrderTTL(), '!max-expiry');
         }
 
         if (params.cancelOrderId > 0) {
@@ -188,7 +185,10 @@ contract Orders is Roles {
             require(leverage >= UNIT, '!min-leverage');
             require(leverage <= market.maxLeverage * UNIT, '!max-leverage');
 
-            // Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until keeper picks up the order. That is why maxOI is checked on processing as well, which is fail safe. This check is more of preemptive for user to not submit an order
+            // Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many
+            // consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until
+            // keeper picks up the order. That is why maxOI is checked on processing as well, which is fail safe.
+            // This check is more of preemptive for user to not submit an order
             riskStore.checkMaxOI(params.asset, params.market, params.size);
 
             // Transfer fee and margin to store
