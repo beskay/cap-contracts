@@ -96,6 +96,7 @@ contract Orders is Roles {
         uint256 vc2;
         uint256 vc3;
 
+        // order cant be reduce-only if take profit or stop loss order is submitted alongside main order
         if (tpPrice > 0 || slPrice > 0) {
             params.isReduceOnly = false;
         }
@@ -186,9 +187,12 @@ contract Orders is Roles {
         MarketStore.Market memory market = marketStore.get(params.market);
         require(market.maxLeverage > 0, '!market-exists');
 
-        // check if order expired
+        // Order expiry validations
         if (params.expiry > 0) {
+            // expiry value cant be in the past
             require(params.expiry >= block.timestamp, '!expiry-value');
+
+            // params.expiry cant be after default expiry of market and trigger orders
             uint256 ttl = params.expiry - block.timestamp;
             if (params.orderType == 0) require(ttl <= orderStore.maxMarketOrderTTL(), '!max-expiry');
             else require(ttl <= orderStore.maxTriggerOrderTTL(), '!max-expiry');

@@ -13,20 +13,20 @@ contract OrderStore is Roles {
 
     // Order struct
     struct Order {
-        uint256 orderId;
-        address user;
-        address asset;
-        string market;
-        uint256 margin;
-        uint256 size;
-        uint256 price;
-        uint256 fee;
-        bool isLong;
+        uint256 orderId; // incremental order id
+        address user; // user that usubmitted the order
+        address asset; // Asset address, e.g. address(0) for ETH
+        string market; // Market this order was submitted on
+        uint256 margin; // Collateral tied to this order. In wei
+        uint256 size; // Order size (margin * leverage). In wei
+        uint256 price; // The order's price if its a trigger or protected order
+        uint256 fee; // Fee amount paid. In wei
+        bool isLong; // Wether the order is a buy or sell order
         uint8 orderType; // 0 = market, 1 = limit, 2 = stop
-        bool isReduceOnly;
-        uint256 timestamp;
-        uint256 expiry;
-        uint256 cancelOrderId;
+        bool isReduceOnly; // Wether the order is reduce-only
+        uint256 timestamp; // block.timestamp at which the order was submitted
+        uint256 expiry; // block.timestamp at which the order expires
+        uint256 cancelOrderId; // orderId to cancel when this order executes
     }
 
     uint256 public oid; // incremental order id
@@ -96,6 +96,7 @@ contract OrderStore is Roles {
 
     /// @notice Removes order from store
     /// @dev Only callable by other protocol contracts
+    /// @param orderId Order to remove
     function remove(uint256 orderId) external onlyContract {
         Order memory order = orders[orderId];
         if (order.size == 0) return;
@@ -107,6 +108,8 @@ contract OrderStore is Roles {
 
     /// @notice Updates `cancelOrderId` of `orderId`, e.g. TP order cancels a SL order and vice versa
     /// @dev Only callable by other protocol contracts
+    /// @param orderId Order which cancels `cancelOrderId` on execution
+    /// @param cancelOrderId Order to cancel when `orderId` executes
     function updateCancelOrderId(uint256 orderId, uint256 cancelOrderId) external onlyContract {
         Order storage order = orders[orderId];
         order.cancelOrderId = cancelOrderId;
@@ -191,6 +194,7 @@ contract OrderStore is Roles {
 
     /// @notice Returns true if order is from `user`
     /// @param orderId order to check
+    /// @param user user to check
     function isUserOrder(uint256 orderId, address user) external view returns (bool) {
         return userOrderIds[user].contains(orderId);
     }

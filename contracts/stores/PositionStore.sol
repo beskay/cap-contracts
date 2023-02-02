@@ -13,15 +13,15 @@ contract PositionStore is Roles {
 
     // Position struct
     struct Position {
-        address user;
-        address asset;
-        string market;
-        bool isLong;
-        uint256 size;
-        uint256 margin;
-        int256 fundingTracker;
-        uint256 price;
-        uint256 timestamp;
+        address user; // User that submitted the position
+        address asset; // Asset address, e.g. address(0) for ETH
+        string market; // Market this position was submitted on
+        bool isLong; // Wether the position is long or short
+        uint256 size; // The position's size (margin * leverage)
+        uint256 margin; // Collateral tied to this position. In wei
+        int256 fundingTracker; // Market funding rate tracker
+        uint256 price; // The position's average execution price
+        uint256 timestamp; // Time at which the position was created
     }
 
     // Constants
@@ -117,7 +117,7 @@ contract PositionStore is Roles {
 
     /// @notice Returns position of `user`
     /// @param asset Base asset of position
-    /// @param market Market of position
+    /// @param market Market this position was submitted on
     function getPosition(address user, address asset, string memory market) public view returns (Position memory) {
         bytes32 key = _getPositionKey(user, asset, market);
         return positions[key];
