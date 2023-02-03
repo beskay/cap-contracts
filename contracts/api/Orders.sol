@@ -13,12 +13,9 @@ import '../stores/RiskStore.sol';
 import '../utils/Chainlink.sol';
 import '../utils/Roles.sol';
 
-/*
-Order of function / event params: id, user, asset, market
-*/
 /**
  * @title  Orders
- * @notice ...
+ * @notice Implementation of order related logic, i.e. submitting orders / cancelling them
  */
 contract Orders is Roles {
     // Libraries
@@ -91,17 +88,14 @@ contract Orders is Roles {
         uint256 tpPrice,
         uint256 slPrice
     ) external payable ifNotPaused {
-        // value consumed
-        uint256 vc1;
-        uint256 vc2;
-        uint256 vc3;
-
         // order cant be reduce-only if take profit or stop loss order is submitted alongside main order
         if (tpPrice > 0 || slPrice > 0) {
             params.isReduceOnly = false;
         }
 
-        (, vc1) = _submitOrder(params);
+        // Submit order
+        uint256 valueConsumed;
+        (, valueConsumed) = _submitOrder(params);
 
         // tp/sl price checks
         if (tpPrice > 0 || slPrice > 0) {
@@ -136,7 +130,9 @@ contract Orders is Roles {
                 params.price = tpPrice;
                 params.orderType = 1;
                 params.isReduceOnly = true;
-                (tpOrderId, vc2) = _submitOrder(params);
+
+                // Order is reduce-only so valueConsumed is always zero
+                (tpOrderId, ) = _submitOrder(params);
             }
 
             // submit stop loss order
@@ -144,7 +140,9 @@ contract Orders is Roles {
                 params.price = slPrice;
                 params.orderType = 2;
                 params.isReduceOnly = true;
-                (slOrderId, vc3) = _submitOrder(params);
+
+                // Order is reduce-only so valueConsumed is always zero
+                (slOrderId, ) = _submitOrder(params);
             }
 
             // Update orders to cancel each other
@@ -154,9 +152,9 @@ contract Orders is Roles {
             }
         }
 
-        // Refund msg.value excess
+        // Refund msg.value excess, if any
         if (params.asset == address(0)) {
-            uint256 diff = msg.value - vc1 - vc2 - vc3;
+            uint256 diff = msg.value - valueConsumed;
             if (diff > 0) {
                 payable(msg.sender).sendValue(diff);
             }
