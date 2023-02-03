@@ -91,8 +91,7 @@ contract RiskStoreTest is Setup {
         // profittracker should be zero
         assertEq(riskStore.getPoolProfitTracker(address(0)), 0);
 
-        // profitLimit is 10% of pool size, so a bit more than 1 ether (1k USD) due to pool fees
-        // it should be possible to close half of the position
+        // close losing position
         _submitAndExecuteReduceOnly(user, btcLong.size, priceFeed);
 
         // profit tracker should be -0.5 ether
