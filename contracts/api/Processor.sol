@@ -370,10 +370,15 @@ contract Processor is Roles, ReentrancyGuard {
         if (pnl <= -1 * int256(threshold)) {
             uint256 fee = (position.size * marketInfo.fee) / BPS_DIVIDER;
 
+            // Credit trader loss and fee
             pool.creditTraderLoss(user, asset, market, position.margin - fee);
             positions.creditFee(0, user, asset, market, fee, true, keeper);
+
+            // Update funding
             positionStore.decrementOI(asset, market, position.size, position.isLong);
             funding.updateFundingTracker(asset, market);
+
+            // Remove position
             positionStore.remove(user, asset, market);
 
             emit PositionLiquidated(
@@ -408,6 +413,7 @@ contract Processor is Roles, ReentrancyGuard {
     }
 
     /// @dev Returns USD value of `amount` of `asset`
+    /// @dev Used for PositionLiquidated event
     function _getUsdAmount(address asset, uint256 amount) internal view returns (uint256) {
         AssetStore.Asset memory assetInfo = assetStore.get(asset);
         uint256 chainlinkPrice = chainlink.getPrice(assetInfo.chainlinkFeed);
