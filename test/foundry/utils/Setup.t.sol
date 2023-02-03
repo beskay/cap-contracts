@@ -240,93 +240,93 @@ contract Setup is Constants {
 
         // Mock Tokens - CAP, USDC
         cap = new MockToken('CAP', 'CAP', 18);
-        console.log('Cap token deployed to', address(cap));
+        //console.log('Cap token deployed to', address(cap));
         usdc = new MockToken('USDC', 'USDC', 6);
-        console.log('USDC token deployed to', address(usdc));
+        //console.log('USDC token deployed to', address(usdc));
 
         // Mock Pyth: _validTimePeriod = 10 seconds, _singleUpdateFeeInWei = 0
         pyth = new MockPyth(10, 0);
-        console.log('MockPyth deployed to', address(pyth));
+        //console.log('MockPyth deployed to', address(pyth));
 
         // Mock chainlink
         chainlink = new MockChainlink();
-        console.log('MockChainlink deployed to', address(chainlink));
+        //console.log('MockChainlink deployed to', address(chainlink));
 
         // Governable
         governable = new Governable();
-        console.log('Governable deployed to', address(governable));
+        //console.log('Governable deployed to', address(governable));
 
         // RoleStore
         roleStore = new RoleStore();
-        console.log('RoleStore deployed to', address(roleStore));
+        //console.log('RoleStore deployed to', address(roleStore));
 
-        console.log('--------');
+        //console.log('--------');
 
         // DataStore
         dataStore = new DataStore();
-        console.log('DataStore deployed to', address(dataStore));
+        //console.log('DataStore deployed to', address(dataStore));
 
-        console.log('--------');
+        //console.log('--------');
 
         // AssetStore
         assetStore = new AssetStore(roleStore);
-        console.log('AssetStore deployed to', address(assetStore));
+        //console.log('AssetStore deployed to', address(assetStore));
 
         // FundingStore
         fundingStore = new FundingStore(roleStore);
-        console.log('FundingStore deployed to', address(fundingStore));
+        //console.log('FundingStore deployed to', address(fundingStore));
 
         // FundStore
         fundStore = new FundStore(roleStore);
-        console.log('FundStore deployed to', address(fundStore));
+        //console.log('FundStore deployed to', address(fundStore));
 
         // MarketStore
         marketStore = new MarketStore(roleStore);
-        console.log('MarketStore deployed to', address(marketStore));
+        //console.log('MarketStore deployed to', address(marketStore));
 
         // OrderStore
         orderStore = new OrderStore(roleStore);
-        console.log('OrderStore deployed to', address(orderStore));
+        //console.log('OrderStore deployed to', address(orderStore));
 
         // PoolStore
         poolStore = new PoolStore(roleStore);
-        console.log('PoolStore deployed to', address(poolStore));
+        //console.log('PoolStore deployed to', address(poolStore));
 
         // PositionStore
         positionStore = new PositionStore(roleStore);
-        console.log('PositionStore deployed to', address(positionStore));
+        //console.log('PositionStore deployed to', address(positionStore));
 
         // RiskStore
         riskStore = new RiskStore(roleStore, dataStore);
-        console.log('RiskStore deployed to', address(riskStore));
+        //console.log('RiskStore deployed to', address(riskStore));
 
         // StakingStore
         stakingStore = new StakingStore(roleStore);
-        console.log('StakingStore deployed to', address(stakingStore));
+        //console.log('StakingStore deployed to', address(stakingStore));
 
         // Funding
         funding = new Funding(roleStore, dataStore);
-        console.log('Funding deployed to', address(funding));
+        //console.log('Funding deployed to', address(funding));
 
         // Orders
         orders = new Orders(roleStore, dataStore);
-        console.log('Orders deployed to', address(orders));
+        //console.log('Orders deployed to', address(orders));
 
         // Pool
         pool = new Pool(roleStore, dataStore);
-        console.log('Pool deployed to', address(pool));
+        //console.log('Pool deployed to', address(pool));
 
         // Positions
         positions = new Positions(roleStore, dataStore);
-        console.log('Positions deployed to', address(positions));
+        //console.log('Positions deployed to', address(positions));
 
         // Processor
         processor = new Processor(roleStore, dataStore);
-        console.log('Processor deployed to', address(processor));
+        //console.log('Processor deployed to', address(processor));
 
         // Staking
         staking = new Staking(roleStore, dataStore);
-        console.log('Staking deployed to', address(staking));
+        //console.log('Staking deployed to', address(staking));
 
         // CONTRACT SETUP //
 
@@ -352,8 +352,8 @@ contract Setup is Constants {
         dataStore.setAddress('USDC', address(usdc), true);
         dataStore.setAddress('Chainlink', address(chainlink), true);
         dataStore.setAddress('Pyth', address(pyth), true);
-        dataStore.setAddress('treasury', msg.sender, true);
-        console.log('Data addresses configured.');
+        dataStore.setAddress('treasury', treasury, true);
+        //console.log('Data addresses configured.');
 
         // Link
         funding.link();
@@ -362,7 +362,7 @@ contract Setup is Constants {
         positions.link();
         processor.link();
         staking.link();
-        console.log('Contracts linked.');
+        //console.log('Contracts linked.');
 
         // Grant roles
         roleStore.grantRole(address(funding), CONTRACT_ROLE);
@@ -371,12 +371,12 @@ contract Setup is Constants {
         roleStore.grantRole(address(positions), CONTRACT_ROLE);
         roleStore.grantRole(address(processor), CONTRACT_ROLE);
         roleStore.grantRole(address(staking), CONTRACT_ROLE);
-        console.log('Roles configured.');
+        //console.log('Roles configured.');
 
         // Currencies
         assetStore.set(address(0), AssetStore.Asset(0.01 ether, linkETH));
         assetStore.set(address(usdc), AssetStore.Asset(10 * 10 ** 6, linkUSDC));
-        console.log('Assets configured.');
+        //console.log('Assets configured.');
 
         // Chainlink prices, 18 decimals
         chainlink.setMarketPrice(linkETH, ETH_PRICE * UNIT);
@@ -403,7 +403,7 @@ contract Setup is Constants {
             uint64(block.timestamp) // publishTime
         );
 
-        console.log('Prices configured.');
+        //console.log('Prices configured.');
 
         // Markets
         marketStore.set(
@@ -443,7 +443,7 @@ contract Setup is Constants {
             })
         );
 
-        console.log('Markets configured.');
+        //console.log('Markets configured.');
 
         // Mint and approve some mock tokens
 
@@ -468,13 +468,13 @@ contract Setup is Constants {
         cap.approve(address(fundStore), MAX_UINT256);
         vm.stopPrank();
 
-        console.log('Minted mock tokens.');
+        //console.log('Minted mock tokens.');
 
         // Fund accounts
-        vm.deal(msg.sender, 10 ether);
-        vm.deal(user, 10 ether);
-        vm.deal(user2, 10 ether);
-        console.log('User accounts funded.');
+        vm.deal(msg.sender, INITIAL_ETH_BALANCE);
+        vm.deal(user, INITIAL_ETH_BALANCE);
+        vm.deal(user2, INITIAL_ETH_BALANCE);
+        //console.log('User accounts funded.');
 
         // set USDC address of orders
         btcLongAssetUSDC.asset = address(usdc);
