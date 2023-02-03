@@ -445,16 +445,20 @@ contract Setup is Constants {
 
         //console.log('Markets configured.');
 
+        poolStore.setWithdrawalFee(address(0), 100); // 1%
+        poolStore.setWithdrawalFee(address(usdc), 100); // 1%
+        //console.log('PoolStore set up');
+
         // Mint and approve some mock tokens
 
-        usdc.mint(100_000 * USDC_DECIMALS);
+        usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
         cap.mint(1000 * UNIT);
         cap.approve(address(fundStore), MAX_UINT256);
 
         // To user
         vm.startPrank(user);
-        usdc.mint(100_000 * USDC_DECIMALS);
+        usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
         cap.mint(1000 * UNIT);
         cap.approve(address(fundStore), MAX_UINT256);
@@ -462,7 +466,7 @@ contract Setup is Constants {
 
         // To user2
         vm.startPrank(user2);
-        usdc.mint(100_000 * USDC_DECIMALS);
+        usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
         cap.mint(1000 * UNIT);
         cap.approve(address(fundStore), MAX_UINT256);

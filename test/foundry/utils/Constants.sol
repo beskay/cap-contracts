@@ -13,6 +13,7 @@ contract Constants is Test {
     uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant USDC_DECIMALS = 10 ** 6;
     uint256 public constant INITIAL_ETH_BALANCE = 10 ether;
+    uint256 public constant INITIAL_USDC_BALANCE = 100_000 * USDC_DECIMALS;
 
     // Prices for test orders
     uint256 public constant ETH_PRICE = 1000;
