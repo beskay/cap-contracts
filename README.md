@@ -18,12 +18,6 @@ npx hardhat compile
 
 ## Testing
 
-Hardhat
-
-```
-npx hardhat test
-```
-
 Foundry
 
 ```
