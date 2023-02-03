@@ -22,12 +22,15 @@ import '../utils/Roles.sol';
 
 /**
  * @title  Positions
- * @notice ...
+ * @notice Implementation of position related logic, i.e. increase positions,
+ *         decrease positions, close positions, add/remove margin
  */
 contract Positions is Roles {
+    // Constants
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
 
+    // Events
     event PositionIncreased(
         uint256 indexed orderId,
         address indexed user,
@@ -92,6 +95,7 @@ contract Positions is Roles {
         bool isLiquidation
     );
 
+    // Contracts
     DataStore public DS;
 
     AssetStore public assetStore;
@@ -137,20 +141,20 @@ contract Positions is Roles {
         chainlink = Chainlink(DS.getAddress('Chainlink'));
     }
 
+    /// @notice Opens a new position or increases existing one
+    /// @dev Only callable by other protocol contracts
     function increasePosition(uint256 orderId, uint256 price, address keeper) public onlyContract {
         OrderStore.Order memory order = orderStore.get(orderId);
+
+        // Check if maximum open interest is reached
         riskStore.checkMaxOI(order.asset, order.market, order.size);
-
-        PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
-
-        creditFee(orderId, order.user, order.asset, order.market, order.fee, false, keeper);
-
         positionStore.incrementOI(order.asset, order.market, order.size, order.isLong);
-
         funding.updateFundingTracker(order.asset, order.market);
 
+        PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
         uint256 averagePrice = (position.size * position.price + order.size * price) / (position.size + order.size);
 
+        // Populate position fields if new position
         if (position.size == 0) {
             position.user = order.user;
             position.asset = order.asset;
@@ -160,13 +164,18 @@ contract Positions is Roles {
             position.fundingTracker = fundingStore.getFundingTracker(order.asset, order.market);
         }
 
+        // Add or update position
         position.size += order.size;
         position.margin += order.margin;
         position.price = averagePrice;
 
         positionStore.addOrUpdate(position);
 
+        // Remove order
         orderStore.remove(orderId);
+
+        // Credit fee to keeper, pool, stakers, treasury
+        creditFee(orderId, order.user, order.asset, order.market, order.fee, false, keeper);
 
         emit PositionIncreased(
             orderId,
@@ -185,29 +194,28 @@ contract Positions is Roles {
         );
     }
 
+    /// @notice Decreases or closes an existing position
+    /// @dev Only callable by other protocol contracts
     function decreasePosition(uint256 orderId, uint256 price, address keeper) external onlyContract {
         OrderStore.Order memory order = orderStore.get(orderId);
         PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
 
+        // If position size is less than order size, not all will be executed
         uint256 executedOrderSize = position.size > order.size ? order.size : position.size;
         uint256 remainingOrderSize = order.size - executedOrderSize;
 
         uint256 remainingOrderMargin;
-
         uint256 amountToReturnToUser;
 
-        // if (order.isReduceOnly) {
-        // 	// order.margin = 0
-        // 	// A fee (order.fee) corresponding to order.size was charged on submit. Only fee corresponding to executedOrderSize should be charged, rest should be returned, if any
-        // 	amountToReturnToUser += order.fee * remainingOrderSize / order.size;
-        // } else {
         if (!order.isReduceOnly) {
-            // User submitted order.margin when sending the order. Refund the portion of order.margin that executes against the position
+            // User submitted order.margin when sending the order. Refund the portion of order.margin
+            // that executes against the position
             uint256 executedOrderMargin = (order.margin * executedOrderSize) / order.size;
             amountToReturnToUser += executedOrderMargin;
             remainingOrderMargin = order.margin - executedOrderMargin;
         }
 
+        // Calculate fee based on executed order size
         uint256 fee = (order.fee * executedOrderSize) / order.size;
 
         creditFee(orderId, order.user, order.asset, order.market, fee, false, keeper);
@@ -216,13 +224,10 @@ contract Positions is Roles {
         uint256 feeToPay = order.isReduceOnly ? fee : 0;
 
         // Funding update
-
         positionStore.decrementOI(order.asset, order.market, order.size, position.isLong);
-
         funding.updateFundingTracker(order.asset, order.market);
 
-        // P/L
-
+        // Get PNL of position
         (int256 pnl, int256 fundingFee) = getPnL(
             order.asset,
             order.market,
@@ -235,6 +240,7 @@ contract Positions is Roles {
 
         uint256 executedPositionMargin = (position.margin * executedOrderSize) / position.size;
 
+        // If PNL is less than position margin, close position, else update position
         if (pnl <= -1 * int256(position.margin)) {
             pnl = -1 * int256(position.margin);
             executedPositionMargin = position.margin;
@@ -246,33 +252,36 @@ contract Positions is Roles {
             position.fundingTracker = fundingStore.getFundingTracker(order.asset, order.market);
         }
 
+        // Check for maximum pool drawdown
         riskStore.checkPoolDrawdown(order.asset, pnl);
 
+        // Credit trader loss or debit trader profit based on pnl
         if (pnl < 0) {
             uint256 absPnl = uint256(-1 * pnl);
-
             pool.creditTraderLoss(order.user, order.asset, order.market, absPnl);
 
             uint256 totalPnl = absPnl + feeToPay;
 
+            // If an order is reduce-only, fee is taken from the position's margin as the order's margin is zero.
             if (totalPnl < executedPositionMargin) {
-                // If an order is reduce-only, fee is taken from the position's margin as the order's margin is zero.
                 amountToReturnToUser += executedPositionMargin - totalPnl;
             }
         } else {
             pool.debitTraderProfit(order.user, order.asset, order.market, uint256(pnl));
+
             // If an order is reduce-only, fee is taken from the position's margin as the order's margin is zero.
             amountToReturnToUser += executedPositionMargin - feeToPay;
         }
 
         if (position.size == 0) {
+            // Remove position if size == 0
             positionStore.remove(order.user, order.asset, order.market);
         } else {
             positionStore.addOrUpdate(position);
         }
 
+        // Remove order and transfer funds out
         orderStore.remove(orderId);
-
         fundStore.transferOut(order.asset, order.user, amountToReturnToUser);
 
         emit PositionDecreased(
@@ -295,7 +304,6 @@ contract Positions is Roles {
         );
 
         // Open position in opposite direction if size remains
-
         if (!order.isReduceOnly && remainingOrderSize > 0) {
             OrderStore.Order memory nextOrder = OrderStore.Order({
                 orderId: 0,
@@ -320,19 +328,21 @@ contract Positions is Roles {
         }
     }
 
+    /// @notice Close position without taking profits to retrieve margin in black swan scenarios
+    /// @dev Only works for chainlink supported markets
     function closePositionWithoutProfit(address _asset, string calldata _market) external {
         address user = msg.sender;
 
+        // check if positions exists
         PositionStore.Position memory position = positionStore.getPosition(user, _asset, _market);
-
         require(position.size > 0, '!position');
 
-        MarketStore.Market memory market = marketStore.get(_market);
-
+        // update funding tracker
         positionStore.decrementOI(_asset, _market, position.size, position.isLong);
-
         funding.updateFundingTracker(_asset, _market);
 
+        // This is not available for markets without Chainlink
+        MarketStore.Market memory market = marketStore.get(_market);
         uint256 price = chainlink.getPrice(market.chainlinkFeed);
         require(price > 0, '!price');
 
@@ -349,13 +359,9 @@ contract Positions is Roles {
         // Only profitable positions can be closed this way
         require(pnl >= 0, '!pnl-positive');
 
-        uint256 fee = (position.size * market.fee) / BPS_DIVIDER;
-
-        creditFee(0, user, _asset, _market, fee, false, address(0));
-
+        // Remove position and transfer margin out
         positionStore.remove(user, _asset, _market);
-
-        fundStore.transferOut(_asset, user, position.margin - fee);
+        fundStore.transferOut(_asset, user, position.margin);
 
         emit PositionDecreased(
             0,
@@ -370,21 +376,21 @@ contract Positions is Roles {
             position.size,
             position.price,
             position.fundingTracker,
-            fee,
+            0,
             0,
             0,
             0
         );
     }
 
+    /// @notice Add margin to a position to decrease its leverage and push away its liquidation price
     function addMargin(address asset, string calldata market, uint256 margin) external payable ifNotPaused {
         address user = msg.sender;
 
         PositionStore.Position memory position = positionStore.getPosition(user, asset, market);
-
         require(position.size > 0, '!position');
 
-        // Transfer funds
+        // Transfer additional margin in
         if (asset == address(0)) {
             margin = msg.value;
             fundStore.transferIn{value: margin}(asset, user, margin);
@@ -394,21 +400,26 @@ contract Positions is Roles {
 
         require(margin > 0, '!margin');
 
+        // update position margin
         position.margin += margin;
 
-        // Leverage
+        // Check if leverage is above minimum leverage
         uint256 leverage = (UNIT * position.size) / position.margin;
         require(leverage >= UNIT, '!min-leverage');
 
+        // update position
         positionStore.addOrUpdate(position);
 
         emit MarginIncreased(user, asset, market, margin, position.margin);
     }
 
+    /// @notice Remove margin from a position to increase its leverage
+    /// @dev Margin removal is only available on markets supported by Chainlink
     function removeMargin(address asset, string calldata market, uint256 margin) external ifNotPaused {
         address user = msg.sender;
 
         MarketStore.Market memory marketInfo = marketStore.get(market);
+
         PositionStore.Position memory position = positionStore.getPosition(user, asset, market);
         require(position.size > 0, '!position');
         require(position.margin > margin, '!margin');
@@ -441,8 +452,8 @@ contract Positions is Roles {
             );
         }
 
+        // Update position and transfer margin out
         position.margin = remainingMargin;
-
         positionStore.addOrUpdate(position);
 
         fundStore.transferOut(asset, user, margin);
@@ -450,6 +461,8 @@ contract Positions is Roles {
         emit MarginDecreased(user, asset, market, margin, position.margin);
     }
 
+    /// @notice Credit fee to Keeper, Pool, Stakers, and Treasury
+    /// @dev Only callable by other protocol contracts
     function creditFee(
         uint256 orderId,
         address user,
@@ -459,8 +472,6 @@ contract Positions is Roles {
         bool isLiquidation,
         address keeper
     ) public onlyContract {
-        // Credit fee to keeper, pool, stakers, treasury
-
         if (fee == 0) return;
 
         uint256 keeperFee;
@@ -469,12 +480,14 @@ contract Positions is Roles {
             keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
         }
 
+        // Calculate fees
         uint256 netFee = fee - keeperFee;
 
         uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
         uint256 feeToPool = (netFee * poolStore.feeShare()) / BPS_DIVIDER;
         uint256 feeToTreasury = netFee - feeToStaking - feeToPool;
 
+        // Increment balances, transfer fees out
         poolStore.incrementBalance(asset, feeToPool);
         stakingStore.incrementPendingReward(asset, feeToStaking);
 
@@ -495,6 +508,16 @@ contract Positions is Roles {
         );
     }
 
+    /// @notice Get pnl of a position
+    /// @param asset Base asset of position
+    /// @param market Market position was submitted on
+    /// @param isLong Wether position is long or short
+    /// @param price Current price of market
+    /// @param positionPrice Average execution price of position
+    /// @param size Positions size (margin * leverage) in wei
+    /// @param fundingTracker Market funding rate tracker
+    /// @return pnl Profit and loss of position
+    /// @return fundingFee Funding fee of position
     function getPnL(
         address asset,
         string memory market,
@@ -524,6 +547,8 @@ contract Positions is Roles {
         return (pnl, fundingFee);
     }
 
+    /// @dev Returns USD value of `amount` of `asset`
+    /// @dev Used for PositionDecreased event
     function _getUsdAmount(address asset, int256 amount) internal view returns (int256) {
         AssetStore.Asset memory assetInfo = assetStore.get(asset);
         uint256 chainlinkPrice = chainlink.getPrice(assetInfo.chainlinkFeed);
