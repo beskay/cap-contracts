@@ -8,16 +8,20 @@ import '../stores/StakingStore.sol';
 
 import '../utils/Roles.sol';
 
+/**
+ * @title  Staking
+ * @notice Stake CAP to receive rewards
+ */
 contract Staking is Roles {
+    // Constants
     uint256 public constant UNIT = 10 ** 18;
-    uint256 public constant BPS_DIVIDER = 10000;
 
+    // Events
     event CAPStaked(address indexed user, uint256 amount);
-
     event CAPUnstaked(address indexed user, uint256 amount);
-
     event CollectedReward(address indexed user, address indexed asset, uint256 amount);
 
+    // Contracts
     DataStore public DS;
 
     AssetStore public assetStore;
@@ -26,10 +30,13 @@ contract Staking is Roles {
 
     address public cap;
 
+    /// @dev Initializes DataStore address
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
     }
 
+    /// @notice Initializes protocol contracts
+    /// @dev Only callable by governance
     function link() external onlyGov {
         assetStore = AssetStore(DS.getAddress('AssetStore'));
         fundStore = FundStore(payable(DS.getAddress('FundStore')));
@@ -37,6 +44,7 @@ contract Staking is Roles {
         cap = DS.getAddress('CAP');
     }
 
+    /// @notice Stake `amount` of CAP to receive rewards
     function stake(uint256 amount) external {
         require(amount > 0, '!amount');
 
@@ -50,6 +58,7 @@ contract Staking is Roles {
         emit CAPStaked(msg.sender, amount);
     }
 
+    /// @notice Unstake `amount` of CAP
     function unstake(uint256 amount) external {
         require(amount > 0, '!amount');
 
@@ -68,15 +77,14 @@ contract Staking is Roles {
         emit CAPUnstaked(msg.sender, amount);
     }
 
-    function updateRewards(address account) public {
-        if (account == address(0)) return;
-        for (uint256 i = 0; i < assetStore.getAssetCount(); i++) {
-            address asset = assetStore.getAssetByIndex(i);
-            stakingStore.incrementRewardPerToken(asset);
-            stakingStore.updateClaimableReward(asset, account);
+    /// @notice Collect multiple rewards
+    function collectMultiple(address[] calldata assets) external {
+        for (uint256 i = 0; i < assets.length; i++) {
+            collectReward(assets[i]);
         }
     }
 
+    /// @notice Collect reward of `asset`
     function collectReward(address asset) public {
         updateRewards(msg.sender);
 
@@ -90,14 +98,17 @@ contract Staking is Roles {
         }
     }
 
-    function collectMultiple(address[] calldata assets) external {
-        for (uint256 i = 0; i < assets.length; i++) {
-            collectReward(assets[i]);
+    /// @notice Update rewards of `account`
+    function updateRewards(address account) public {
+        if (account == address(0)) return;
+        for (uint256 i = 0; i < assetStore.getAssetCount(); i++) {
+            address asset = assetStore.getAssetByIndex(i);
+            stakingStore.incrementRewardPerToken(asset);
+            stakingStore.updateClaimableReward(asset, account);
         }
     }
 
-    // -- Getters -- //
-
+    /// @notice Get claimable reward of `account` and `asset`
     function getClaimableReward(address asset, address account) public view returns (uint256) {
         uint256 currentClaimableReward = stakingStore.getClaimableReward(asset, account);
 
@@ -117,12 +128,15 @@ contract Staking is Roles {
             UNIT;
     }
 
+    /// @notice Get claimable reward of `account` and `assets`
     function getClaimableRewards(address[] calldata assets, address account) external view returns (uint256[] memory) {
         uint256 length = assets.length;
         uint256[] memory _rewards = new uint256[](length);
+
         for (uint256 i = 0; i < length; i++) {
             _rewards[i] = getClaimableReward(assets[i], account);
         }
+
         return _rewards;
     }
 }

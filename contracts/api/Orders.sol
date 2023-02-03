@@ -209,7 +209,7 @@ contract Orders is Roles {
         if (params.isReduceOnly) {
             params.margin = 0;
             // Existing position is checked on execution so TP/SL can be submitted as reduce-only alongside a non-executed order
-            // In this case, valueConsumed is zero as margin is zero and fee is taken from the order's margin
+            // In this case, valueConsumed is zero as margin is zero and fee is taken from the order's margin when position is executed
         } else {
             require(!market.isReduceOnly, '!market-reduce-only');
             require(params.margin > 0, '!margin');
