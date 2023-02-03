@@ -111,6 +111,9 @@ contract PoolTest is Setup {
         uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(0))) / BPS_DIVIDER;
         uint256 amountMinusFee = amount - feeAmount;
 
+        //user balance should be initial balance - fee
+        assertEq(user.balance, INITIAL_ETH_BALANCE - feeAmount);
+
         // fee is left in pool
         assertEq(poolStore.getBalance(address(0)), feeAmount, '!poolBalance');
 
@@ -141,8 +144,11 @@ contract PoolTest is Setup {
         pool.withdraw(address(usdc), amount);
 
         // withdrawal fee
-        uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(0))) / BPS_DIVIDER;
+        uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(usdc))) / BPS_DIVIDER;
         uint256 amountMinusFee = amount - feeAmount;
+
+        // user balance should be initial balance - fee
+        assertEq(usdc.balanceOf(user), INITIAL_USDC_BALANCE - feeAmount);
 
         // fee is left in pool
         assertEq(poolStore.getBalance(address(usdc)), feeAmount, '!poolBalance');

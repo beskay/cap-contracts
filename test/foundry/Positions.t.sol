@@ -231,6 +231,27 @@ contract PositionsTest is Setup {
         assertEq(user2.balance, INITIAL_ETH_BALANCE + keeperFee, '!keeperFee');
     }
 
+    function testCreditFeeAssetUSDC() public {
+        // execute btc long order
+        _submitAndExecuteLongAssetUSDC(user, 5000 * USDC_DECIMALS);
+
+        // calculate fees
+        uint256 fee = (btcLongAssetUSDC.size * 10) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+
+        uint256 netFee = fee - keeperFee;
+
+        uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
+        uint256 feeToPool = (netFee * poolStore.feeShare()) / BPS_DIVIDER;
+        uint256 feeToTreasury = netFee - feeToStaking - feeToPool;
+
+        // validate fee payment
+        assertEq(poolStore.getBalance(address(usdc)), feeToPool, '!feeToPool');
+        assertEq(stakingStore.getPendingReward(address(usdc)), feeToStaking, '!feeToStaking');
+        assertEq(usdc.balanceOf(treasury), feeToTreasury, '!feeToTreasury');
+        assertEq(usdc.balanceOf(user2), INITIAL_USDC_BALANCE + keeperFee, '!keeperFee');
+    }
+
     // utils
     function _submitAndExecuteLong(address _user, uint256 _size) internal {
         // user submits BTC long order
@@ -273,7 +294,8 @@ contract PositionsTest is Setup {
         uint256 oid = orderStore.oid();
         orderIds[0] = oid;
 
-        // execute order
+        // set keeper to user2, to test fees in {testCreditFeesUSDC}
+        vm.prank(user2);
         processor.executeOrders(orderIds, priceFeedData);
     }
 
