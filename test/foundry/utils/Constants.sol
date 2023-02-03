@@ -6,13 +6,13 @@ import 'forge-std/Test.sol';
 contract Constants is Test {
     // Roles
     bytes32 constant CONTRACT_ROLE = keccak256('CONTRACT');
-    bytes32 constant ORACLE_ROLE = keccak256('ORACLE');
 
     // Constants
     uint256 public constant MAX_UINT256 = 2 ** 256 - 1;
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant USDC_DECIMALS = 10 ** 6;
+    uint256 public constant INITIAL_ETH_BALANCE = 10 ether;
 
     // Prices for test orders
     uint256 public constant ETH_PRICE = 1000;
