@@ -206,7 +206,7 @@ contract Pool is Roles {
         uint256 amountMinusFee = amount - feeAmount;
 
         // CLP amount
-        uint256 clpAmount = (amountMinusFee * clpSupply) / balance;
+        uint256 clpAmount = (amount * clpSupply) / balance;
 
         // decrement balances
         poolStore.decrementUserClpBalance(asset, user, clpAmount);
