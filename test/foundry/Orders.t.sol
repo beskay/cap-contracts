@@ -22,6 +22,20 @@ contract OrderTest is Setup {
         assertEq(address(fundStore).balance, value);
     }
 
+    function testSubmitOrderAssetUSDC() public {
+        uint256 value = btcLongAssetUSDC.margin + (btcLongAssetUSDC.size * 10) / BPS_DIVIDER; // margin + fee
+
+        vm.prank(user);
+        orders.submitOrder(btcLongAssetUSDC, 0, 0);
+
+        // order should be registered
+        assertEq(orderStore.getUserOrderCount(user), 1);
+        assertEq(orderStore.getMarketOrderCount(), 1);
+
+        // Margin + fee should be transferred in
+        assertEq(usdc.balanceOf(address(fundStore)), value);
+    }
+
     function testCancelOrder() public {
         uint256 userBalanceBefore = user.balance;
         uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee
@@ -40,6 +54,30 @@ contract OrderTest is Setup {
         assertEq(address(fundStore).balance, 0);
         // user balance should be same as before
         assertEq(user.balance, userBalanceBefore);
+
+        // no orders
+        assertEq(orderStore.getUserOrderCount(user), 0);
+        assertEq(orderStore.getMarketOrderCount(), 0);
+    }
+
+    function testCancelOrderUSDC() public {
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 value = btcLongAssetUSDC.margin + (btcLongAssetUSDC.size * 10) / BPS_DIVIDER; // margin + fee
+
+        vm.prank(user);
+        orders.submitOrder(btcLongAssetUSDC, 0, 0);
+
+        // Margin + fee should be transferred in
+        assertEq(usdc.balanceOf(address(fundStore)), value);
+
+        // cancel order
+        vm.prank(user);
+        orders.cancelOrder(1);
+
+        // Margin + fee should be transferred out again
+        assertEq(usdc.balanceOf(address(fundStore)), 0);
+        // user balance should be same as before
+        assertEq(usdc.balanceOf(user), userBalanceBefore);
 
         // no orders
         assertEq(orderStore.getUserOrderCount(user), 0);
@@ -151,8 +189,6 @@ contract OrderTest is Setup {
         vm.expectRevert('!paused');
         orders.submitOrder(btcLongAssetUSDC, 0, 0);
     }
-
-    function test() public {}
 
     // needed to receive Ether (e.g. keeper fee)
     receive() external payable {}
