@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// import 'hardhat/console.sol';
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/utils/Address.sol';
 
@@ -15,26 +13,31 @@ import '../stores/RiskStore.sol';
 import '../utils/Chainlink.sol';
 import '../utils/Roles.sol';
 
-/*
-Order of function / event params: id, user, asset, market
-*/
-
+/**
+ * @title  Orders
+ * @notice Implementation of order related logic, i.e. submitting orders / cancelling them
+ */
 contract Orders is Roles {
+    // Libraries
     using Address for address payable;
 
+    // Constants
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
 
+    // Events
+
+    // Order of function / event params: id, user, asset, market
     event OrderCreated(
         uint256 indexed orderId,
         address indexed user,
         address indexed asset,
         string market,
-        bool isLong,
         uint256 margin,
         uint256 size,
         uint256 price,
         uint256 fee,
+        bool isLong,
         uint8 orderType,
         bool isReduceOnly,
         uint256 expiry,
@@ -43,6 +46,7 @@ contract Orders is Roles {
 
     event OrderCancelled(uint256 indexed orderId, address indexed user, string reason);
 
+    // Contracts
     DataStore public DS;
 
     AssetStore public assetStore;
@@ -53,10 +57,19 @@ contract Orders is Roles {
 
     Chainlink public chainlink;
 
+    /// @dev Initializes DataStore address
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
     }
 
+    /// @dev Reverts if new orders are paused
+    modifier ifNotPaused() {
+        require(!orderStore.areNewOrdersPaused(), '!paused');
+        _;
+    }
+
+    /// @notice Initializes protocol contracts
+    /// @dev Only callable by governance
     function link() external onlyGov {
         assetStore = AssetStore(DS.getAddress('AssetStore'));
         fundStore = FundStore(payable(DS.getAddress('FundStore')));
@@ -66,27 +79,25 @@ contract Orders is Roles {
         chainlink = Chainlink(DS.getAddress('Chainlink'));
     }
 
-    modifier ifNotPaused() {
-        require(!orderStore.areNewOrdersPaused(), '!paused');
-        _;
-    }
-
+    /// @notice Submits a new order
+    /// @param params Order to submit
+    /// @param tpPrice 18 decimal take profit price
+    /// @param slPrice 18 decimal stop loss price
     function submitOrder(
         OrderStore.Order memory params,
         uint256 tpPrice,
         uint256 slPrice
     ) external payable ifNotPaused {
-        // value consumed
-        uint256 vc1;
-        uint256 vc2;
-        uint256 vc3;
-
+        // order cant be reduce-only if take profit or stop loss order is submitted alongside main order
         if (tpPrice > 0 || slPrice > 0) {
             params.isReduceOnly = false;
         }
 
-        (, vc1) = _submitOrder(params);
+        // Submit order
+        uint256 valueConsumed;
+        (, valueConsumed) = _submitOrder(params);
 
+        // tp/sl price checks
         if (tpPrice > 0 || slPrice > 0) {
             if (params.price > 0) {
                 if (tpPrice > 0) {
@@ -107,94 +118,96 @@ contract Orders is Roles {
                 require((params.isLong && tpPrice > slPrice) || (!params.isLong && tpPrice < slPrice), '!tpsl-invalid');
             }
 
+            // tp and sl order ids
             uint256 tpOrderId;
             uint256 slOrderId;
 
-            // todo: remove this
-            if (tpPrice > 0 || slPrice > 0) {
-                params.isLong = !params.isLong;
-            }
+            // long -> short, short -> long for take profit / stop loss order
+            params.isLong = !params.isLong;
 
+            // submit take profit order
             if (tpPrice > 0) {
                 params.price = tpPrice;
                 params.orderType = 1;
                 params.isReduceOnly = true;
-                (tpOrderId, vc2) = _submitOrder(params);
+
+                // Order is reduce-only so valueConsumed is always zero
+                (tpOrderId, ) = _submitOrder(params);
             }
+
+            // submit stop loss order
             if (slPrice > 0) {
                 params.price = slPrice;
                 params.orderType = 2;
                 params.isReduceOnly = true;
-                (slOrderId, vc3) = _submitOrder(params);
+
+                // Order is reduce-only so valueConsumed is always zero
+                (slOrderId, ) = _submitOrder(params);
             }
 
+            // Update orders to cancel each other
             if (tpOrderId > 0 && slOrderId > 0) {
-                // Update orders to cancel each other
                 orderStore.updateCancelOrderId(tpOrderId, slOrderId);
                 orderStore.updateCancelOrderId(slOrderId, tpOrderId);
             }
         }
 
-        // Refund msg.value excess
+        // Refund msg.value excess, if any
         if (params.asset == address(0)) {
-            uint256 diff = msg.value - vc1 - vc2 - vc3;
+            uint256 diff = msg.value - valueConsumed;
             if (diff > 0) {
                 payable(msg.sender).sendValue(diff);
             }
         }
     }
 
+    /// @notice Submits a new order
+    /// @dev Internal function invoked by {submitOrder}
     function _submitOrder(OrderStore.Order memory params) internal returns (uint256, uint256) {
-        address user = msg.sender;
-
-        // console.log(1);
+        // Set user and timestamp
+        params.user = msg.sender;
+        params.timestamp = block.timestamp;
 
         // Validations
-
         require(params.orderType == 0 || params.orderType == 1 || params.orderType == 2, '!order-type');
 
+        // execution price of trigger order cant be zero
         if (params.orderType != 0) {
             require(params.price > 0, '!price');
         }
 
-        // console.log(2);
-
+        // check if base asset is supported and order size is above min size
         AssetStore.Asset memory asset = assetStore.get(params.asset);
         require(asset.minSize > 0, '!asset-exists');
         require(params.size >= asset.minSize, '!min-size');
 
-        // console.log(3);
-
+        // check if market exists
         MarketStore.Market memory market = marketStore.get(params.market);
         require(market.maxLeverage > 0, '!market-exists');
 
-        // console.log(5);
-
+        // Order expiry validations
         if (params.expiry > 0) {
+            // expiry value cant be in the past
             require(params.expiry >= block.timestamp, '!expiry-value');
+
+            // params.expiry cant be after default expiry of market and trigger orders
             uint256 ttl = params.expiry - block.timestamp;
-            require(
-                (params.orderType == 0 && ttl <= orderStore.maxMarketOrderTTL()) ||
-                    ttl <= orderStore.maxTriggerOrderTTL(),
-                '!max-expiry'
-            );
+            if (params.orderType == 0) require(ttl <= orderStore.maxMarketOrderTTL(), '!max-expiry');
+            else require(ttl <= orderStore.maxTriggerOrderTTL(), '!max-expiry');
         }
 
-        // console.log(6);
-
+        // cant cancel an order of another user
         if (params.cancelOrderId > 0) {
-            require(orderStore.isUserOrder(params.cancelOrderId, user), '!user-oco');
+            require(orderStore.isUserOrder(params.cancelOrderId, params.user), '!user-oco');
         }
 
-        // console.log(7);
-
-        uint256 fee = (params.size * market.fee) / BPS_DIVIDER;
+        params.fee = (params.size * market.fee) / BPS_DIVIDER;
         uint256 valueConsumed;
 
         if (params.isReduceOnly) {
             params.margin = 0;
             // Existing position is checked on execution so TP/SL can be submitted as reduce-only alongside a non-executed order
-            // In this case, valueConsumed is zero as margin is zero and fee is taken from the order's margin
+            // In this case, valueConsumed is zero as margin is zero and fee is taken from the order's margin when position is executed
         } else {
             require(!market.isReduceOnly, '!market-reduce-only');
             require(params.margin > 0, '!margin');
@@ -203,54 +216,46 @@ contract Orders is Roles {
             require(leverage >= UNIT, '!min-leverage');
             require(leverage <= market.maxLeverage * UNIT, '!max-leverage');
 
-            // console.log(71);
-            // Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until keeper picks up the order. That is why maxOI is checked on processing as well, which is fail safe. This check is more of preemptive for user to not submit an order
+            // Check against max OI if it's not reduce-only. this is not completely fail safe as user can place many
+            // consecutive market orders of smaller size and get past the max OI limit here, because OI is not updated until
+            // keeper picks up the order. That is why maxOI is checked on processing as well, which is fail safe.
+            // This check is more of preemptive for user to not submit an order
             riskStore.checkMaxOI(params.asset, params.market, params.size);
-            // console.log(72);
 
             // Transfer fee and margin to store
-            valueConsumed = params.margin + fee;
+            valueConsumed = params.margin + params.fee;
 
             if (params.asset == address(0)) {
-                fundStore.transferIn{value: valueConsumed}(params.asset, user, valueConsumed);
+                fundStore.transferIn{value: valueConsumed}(params.asset, params.user, valueConsumed);
             } else {
-                fundStore.transferIn(params.asset, user, valueConsumed);
+                fundStore.transferIn(params.asset, params.user, valueConsumed);
             }
-
-            // console.log(73);
         }
 
-        // console.log(8);
-
-        // Add order to store
-
-        params.user = user;
-        params.fee = fee;
-        params.timestamp = block.timestamp;
-
-        uint256 orderId = orderStore.add(params);
-
-        // console.log(9);
+        // Add order to store and emit event
+        params.orderId = orderStore.add(params);
 
         emit OrderCreated(
-            orderId,
-            user,
+            params.orderId,
+            params.user,
             params.asset,
             params.market,
-            params.isLong,
             params.margin,
             params.size,
             params.price,
             params.fee,
+            params.isLong,
             params.orderType,
             params.isReduceOnly,
             params.expiry,
             params.cancelOrderId
         );
 
-        return (orderId, valueConsumed);
+        return (params.orderId, valueConsumed);
     }
 
+    /// @notice Cancels order
+    /// @param orderId Order to cancel
     function cancelOrder(uint256 orderId) external ifNotPaused {
         OrderStore.Order memory order = orderStore.get(orderId);
         require(order.size > 0, '!order');
@@ -258,6 +263,8 @@ contract Orders is Roles {
         _cancelOrder(orderId, 'by-user');
     }
 
+    /// @notice Cancel several orders
+    /// @param orderIds Array of orderIds to cancel
     function cancelOrders(uint256[] calldata orderIds) external ifNotPaused {
         for (uint256 i = 0; i < orderIds.length; i++) {
             OrderStore.Order memory order = orderStore.get(orderIds[i]);
@@ -267,16 +274,28 @@ contract Orders is Roles {
         }
     }
 
-    function cancelOrder(uint256 orderId, string memory reason) external onlyContract {
+    /// @notice Cancels order
+    /// @dev Only callable by other protocol contracts
+    /// @param orderId Order to cancel
+    /// @param reason Cancellation reason
+    function cancelOrder(uint256 orderId, string calldata reason) external onlyContract {
         _cancelOrder(orderId, reason);
     }
 
+    /// @notice Cancel several orders
+    /// @dev Only callable by other protocol contracts
+    /// @param orderIds Order ids to cancel
+    /// @param reasons Cancellation reasons
     function cancelOrders(uint256[] calldata orderIds, string[] calldata reasons) external onlyContract {
         for (uint256 i = 0; i < orderIds.length; i++) {
             _cancelOrder(orderIds[i], reasons[i]);
         }
     }
 
+    /// @notice Cancels order
+    /// @dev Internal function without access restriction
+    /// @param orderId Order to cancel
+    /// @param reason Cancellation reason
     function _cancelOrder(uint256 orderId, string memory reason) internal {
         OrderStore.Order memory order = orderStore.get(orderId);
         if (order.size == 0) return;

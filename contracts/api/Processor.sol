@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// import 'hardhat/console.sol';
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
@@ -25,11 +23,20 @@ import './Positions.sol';
 import '../utils/Chainlink.sol';
 import '../utils/Roles.sol';
 
+/**
+ * @title  Processor
+ * @notice Implementation of order execution and position liquidation.
+ *         Orders are settled on-demand by the Pyth network. Keepers, which
+ *         anyone can run, execute orders as they are submitted to CAP's
+ *         contracts using Pyth prices. Orders can also be self executed after
+ *         a cooldown period
+ */
 contract Processor is Roles, ReentrancyGuard {
+    // Constants
     uint256 public constant BPS_DIVIDER = 10000;
 
+    // Events
     event LiquidationError(address user, address asset, string market, uint256 price, string reason);
-
     event PositionLiquidated(
         address indexed user,
         address indexed asset,
@@ -41,9 +48,7 @@ contract Processor is Roles, ReentrancyGuard {
         uint256 price,
         uint256 fee
     );
-
     event OrderSkipped(uint256 indexed orderId, string market, uint256 price, uint256 publishTime, string reason);
-
     event UserSkipped(
         address indexed user,
         address indexed asset,
@@ -53,6 +58,7 @@ contract Processor is Roles, ReentrancyGuard {
         string reason
     );
 
+    // Contracts
     DataStore public DS;
 
     AssetStore public assetStore;
@@ -71,10 +77,19 @@ contract Processor is Roles, ReentrancyGuard {
     Chainlink public chainlink;
     IPyth public pyth;
 
+    /// @dev Initializes DataStore address
     constructor(RoleStore rs, DataStore ds) Roles(rs) {
         DS = ds;
     }
 
+    /// @dev Reverts if order processing is paused
+    modifier ifNotPaused() {
+        require(!orderStore.isProcessingPaused(), '!paused');
+        _;
+    }
+
+    /// @notice Initializes protocol contracts
+    /// @dev Only callable by governance
     function link() external onlyGov {
         assetStore = AssetStore(DS.getAddress('AssetStore'));
         fundStore = FundStore(payable(DS.getAddress('FundStore')));
@@ -91,25 +106,26 @@ contract Processor is Roles, ReentrancyGuard {
         pyth = IPyth(DS.getAddress('Pyth'));
     }
 
-    modifier ifNotPaused() {
-        require(!orderStore.isProcessingPaused(), '!paused');
-        _;
-    }
-
     // ORDER EXECUTION
 
-    // Anyone can call this
+    /// @notice Self execution of order using Chainlink (after a cooldown period)
+    /// @dev Anyone can call this in case order isn't executed from keeper via {executeOrders}
+    /// @param orderId order id to execute
     function selfExecuteOrder(uint256 orderId) external nonReentrant ifNotPaused {
         (bool status, string memory reason) = _executeOrder(orderId, 0, true, address(0));
         require(status, reason);
     }
 
-    // Orders executed by keeper (anyone) with Pyth priceUpdateData
-    function executeOrders(uint256[] calldata orderIds, bytes[] calldata priceUpdateData) external payable nonReentrant ifNotPaused {
+    /// @notice Order execution by keeper (anyone) with Pyth priceUpdateData
+    /// @param orderIds order id's to execute
+    /// @param priceUpdateData Pyth priceUpdateData, see docs.pyth.network
+    function executeOrders(
+        uint256[] calldata orderIds,
+        bytes[] calldata priceUpdateData
+    ) external payable nonReentrant ifNotPaused {
         // updates price for all submitted price feeds
         uint256 fee = pyth.getUpdateFee(priceUpdateData);
         require(msg.value >= fee, '!fee');
-
         pyth.updatePriceFeeds{value: fee}(priceUpdateData);
 
         // Get the price for each order
@@ -136,34 +152,35 @@ contract Processor is Roles, ReentrancyGuard {
         }
     }
 
+    /// @dev Executes submitted order
+    /// @param orderId Order to execute
+    /// @param price Pyth price (0 if self-executed since Chainlink price will be used)
+    /// @param withChainlink Wether to use Chainlink or not (i.e. if self executed or not)
+    /// @param keeper Address of keeper which executes the order (address(0) if self execution)
     function _executeOrder(
         uint256 orderId,
         uint256 price,
         bool withChainlink,
         address keeper
     ) internal returns (bool, string memory) {
-        // console.log(1);
-
         OrderStore.Order memory order = orderStore.get(orderId);
+
+        // Validations
+
         if (order.size == 0) {
             return (false, '!order');
         }
-
-        // console.log(3);
 
         if (order.expiry > 0 && order.expiry <= block.timestamp) {
             return (false, '!expired');
         }
 
-        // console.log(4);
-
         // cancel if order is too old
+        // By default, market orders expire after 30 minutes and trigger orders after 180 days
         uint256 ttl = block.timestamp - order.timestamp;
         if ((order.orderType == 0 && ttl > orderStore.maxMarketOrderTTL()) || ttl > orderStore.maxTriggerOrderTTL()) {
             return (false, '!too-old');
         }
-
-        // console.log(6);
 
         MarketStore.Market memory market = marketStore.get(order.market);
 
@@ -176,26 +193,20 @@ contract Processor is Roles, ReentrancyGuard {
             if (!market.allowChainlinkExecution) {
                 return (false, '!chainlink-not-allowed');
             }
-            if (order.timestamp >= block.timestamp - orderStore.chainlinkCooldown()) {
+            if (order.timestamp > block.timestamp - orderStore.chainlinkCooldown()) {
                 return (false, '!chainlink-cooldown');
             }
             price = chainlinkPrice;
         }
 
-        // console.log(7);
-
         if (price == 0) {
             return (false, '!no-price');
         }
-
-        // console.log(market.maxDeviation, chainlinkPrice, price);
 
         // Bound provided price with chainlink
         if (!_boundPriceWithChainlink(market.maxDeviation, chainlinkPrice, price)) {
             return (true, '!chainlink-deviation'); // returns true so as not to trigger order cancellation
         }
-
-        // console.log(8);
 
         // Is trigger order executable at provided price?
         if (order.orderType != 0) {
@@ -207,17 +218,16 @@ contract Processor is Roles, ReentrancyGuard {
             ) {
                 return (true, '!no-execution'); // don't cancel order
             }
-            // price = order.price; // can't have this otherwise orders might execute at much worse than market price
         } else if (order.price > 0) {
-            // protected market order
+            // protected market order (market order with a price). It will execute only if the execution price
+            // is better than the submitted price. Otherwise, it will be cancelled
             if ((order.isLong && price > order.price) || (!order.isLong && price < order.price)) {
                 return (false, '!protected');
             }
         }
 
-        // console.log(9);
-
-        // OCO
+        // One-cancels-the-Other (OCO)
+        // `cancelOrderId` is an existing order which should be cancelled when the current order executes
         if (order.cancelOrderId > 0) {
             try orders.cancelOrder(order.cancelOrderId, '!oco') {} catch Error(string memory reason) {
                 return (false, reason);
@@ -225,9 +235,7 @@ contract Processor is Roles, ReentrancyGuard {
         }
 
         // Check if there is a position
-        PositionStore.Position memory position = positionStore.get(order.user, order.asset, order.market);
-
-        // console.log(10);
+        PositionStore.Position memory position = positionStore.getPosition(order.user, order.asset, order.market);
 
         bool doAdd = !order.isReduceOnly && (position.size == 0 || order.isLong == position.isLong);
         bool doReduce = position.size > 0 && order.isLong != position.isLong;
@@ -244,19 +252,29 @@ contract Processor is Roles, ReentrancyGuard {
             return (false, '!reduce');
         }
 
-        // console.log(11);
-
         return (true, '');
     }
 
     // POSITION LIQUIDATION
 
-    // Anyone can call this
-    function selfLiquidatePosition(address user, address asset, string memory market) external nonReentrant ifNotPaused {
+    /// @notice Self liquidation of order using Chainlink price
+    /// @param user User address to liquidate
+    /// @param asset Base asset of position
+    /// @param market Market this position was submitted on
+    function selfLiquidatePosition(
+        address user,
+        address asset,
+        string memory market
+    ) external nonReentrant ifNotPaused {
         (bool status, string memory reason) = _liquidatePosition(user, asset, market, 0, true, address(0));
         require(status, reason);
     }
 
+    /// @notice Position liquidation by keeper (anyone) with Pyth priceUpdateData
+    /// @param users User addresses to liquidate
+    /// @param assets Base asset array
+    /// @param markets Market array
+    /// @param priceUpdateData Pyth priceUpdateData, see docs.pyth.network
     function liquidatePositions(
         address[] calldata users,
         address[] calldata assets,
@@ -294,6 +312,13 @@ contract Processor is Roles, ReentrancyGuard {
         }
     }
 
+    /// @dev Liquidates position
+    /// @param user User address to liquidate
+    /// @param asset Base asset of position
+    /// @param market Market this position was submitted on
+    /// @param price Pyth price (0 if self liquidation since Chainlink price will be used)
+    /// @param withChainlink Wether to use Chainlink or not (i.e. if self liquidation or not)
+    /// @param keeper Address of keeper which liquidates position (address(0) if self liquidation)
     function _liquidatePosition(
         address user,
         address asset,
@@ -302,7 +327,7 @@ contract Processor is Roles, ReentrancyGuard {
         bool withChainlink,
         address keeper
     ) internal returns (bool, string memory) {
-        PositionStore.Position memory position = positionStore.get(user, asset, market);
+        PositionStore.Position memory position = positionStore.getPosition(user, asset, market);
         if (position.size == 0) {
             return (false, '!position');
         }
@@ -327,6 +352,7 @@ contract Processor is Roles, ReentrancyGuard {
             return (false, '!chainlink-deviation');
         }
 
+        // Get PNL of position
         (int256 pnl, ) = positions.getPnL(
             asset,
             market,
@@ -337,21 +363,22 @@ contract Processor is Roles, ReentrancyGuard {
             position.fundingTracker
         );
 
+        // Treshold after which position will be liquidated
         uint256 threshold = (position.margin * marketInfo.liqThreshold) / BPS_DIVIDER;
 
+        // Liquidate position if PNL is less than required threshold
         if (pnl <= -1 * int256(threshold)) {
-            // TODO: below should probably be DRYed with position decreased in Positions contract, and emit same event with isLiquidation = true
-
             uint256 fee = (position.size * marketInfo.fee) / BPS_DIVIDER;
 
+            // Credit trader loss and fee
             pool.creditTraderLoss(user, asset, market, position.margin - fee);
-
             positions.creditFee(0, user, asset, market, fee, true, keeper);
 
+            // Update funding
             positionStore.decrementOI(asset, market, position.size, position.isLong);
-
             funding.updateFundingTracker(asset, market);
 
+            // Remove position
             positionStore.remove(user, asset, market);
 
             emit PositionLiquidated(
@@ -372,14 +399,21 @@ contract Processor is Roles, ReentrancyGuard {
 
     // -- Utils -- //
 
-    function _getPythPrice(bytes32 priceFeedId) internal view returns (uint256 price, uint256 publishTime) {
+    /// @dev Returns pyth price converted to 18 decimals
+    function _getPythPrice(bytes32 priceFeedId) internal view returns (uint256, uint256) {
         // It will revert if the price is older than maxAge
         PythStructs.Price memory retrievedPrice = pyth.getPriceUnsafe(priceFeedId);
         uint256 baseConversion = 10 ** uint256(int256(18) + retrievedPrice.expo);
-        price = uint256(retrievedPrice.price * int256(baseConversion)); // 18 decimals
-        publishTime = retrievedPrice.publishTime;
+
+        // Convert price to 18 decimals
+        uint256 price = uint256(retrievedPrice.price * int256(baseConversion));
+        uint256 publishTime = retrievedPrice.publishTime;
+
+        return (price, publishTime);
     }
 
+    /// @dev Returns USD value of `amount` of `asset`
+    /// @dev Used for PositionLiquidated event
     function _getUsdAmount(address asset, uint256 amount) internal view returns (uint256) {
         AssetStore.Asset memory assetInfo = assetStore.get(asset);
         uint256 chainlinkPrice = chainlink.getPrice(assetInfo.chainlinkFeed);
@@ -391,6 +425,7 @@ contract Processor is Roles, ReentrancyGuard {
         return (amount * chainlinkPrice) / 10 ** decimals;
     }
 
+    /// @dev Submitted Pyth price is bound by the Chainlink price
     function _boundPriceWithChainlink(
         uint256 maxDeviation,
         uint256 chainlinkPrice,

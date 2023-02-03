@@ -1,39 +1,70 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.13;
 
 import '../utils/Roles.sol';
 
+/// @title FundingStore
+/// @notice Storage of funding trackers for all supported markets
 contract FundingStore is Roles {
+    // interval used to calculate accrued funding
+    uint256 public fundingInterval = 1 hours;
+
+    // asset => market => funding tracker (long) (short is opposite)
+    mapping(address => mapping(string => int256)) private fundingTrackers;
+
+    // asset => market => last time fundingTracker was updated. In seconds.
+    mapping(address => mapping(string => uint256)) private lastUpdated;
+
     constructor(RoleStore rs) Roles(rs) {}
 
-    uint256 public fundingInterval = 1 hours; // In seconds.
-    mapping(address => mapping(string => int256)) private fundingTrackers; // asset => market => funding tracker (long) (short is opposite)
-    mapping(address => mapping(string => uint256)) private lastUpdated; // asset => market => last time fundingTracker was updated. In seconds.
-
-    // Setters
-
+    /// @notice updates `fundingInterval`
+    /// @dev Only callable by governance
+    /// @param amount new funding interval, in seconds
     function setFundingInterval(uint256 amount) external onlyGov {
         fundingInterval = amount;
     }
 
-    function setLastUpdated(address asset, string memory market, uint256 timestamp) external onlyContract {
+    /// @notice Updates `lastUpdated` mapping
+    /// @dev Only callable by other protocol contracts
+    /// @dev Invoked by Funding.updateFundingTracker
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param market Market, e.g. "ETH-USD"
+    /// @param timestamp Timestamp in seconds
+    function setLastUpdated(address asset, string calldata market, uint256 timestamp) external onlyContract {
         lastUpdated[asset][market] = timestamp;
     }
 
-    function updateFundingTracker(address asset, string memory market, int256 fundingIncrement) external onlyContract {
+    /// @notice updates `fundingTracker` mapping
+    /// @dev Only callable by other protocol contracts
+    /// @dev Invoked by Funding.updateFundingTracker
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param market Market, e.g. "ETH-USD"
+    /// @param fundingIncrement Accrued funding of given asset and market
+    function updateFundingTracker(
+        address asset,
+        string calldata market,
+        int256 fundingIncrement
+    ) external onlyContract {
         fundingTrackers[asset][market] += fundingIncrement;
     }
 
-    // Getters
-
-    function getLastUpdated(address asset, string memory market) external view returns (uint256) {
+    /// @notice Returns last update timestamp of `asset` and `market`
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param market Market, e.g. "ETH-USD"
+    function getLastUpdated(address asset, string calldata market) external view returns (uint256) {
         return lastUpdated[asset][market];
     }
 
-    function getFundingTracker(address asset, string memory market) external view returns (int256) {
+    /// @notice Returns funding tracker of `asset` and `market`
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param market Market, e.g. "ETH-USD"
+    function getFundingTracker(address asset, string calldata market) external view returns (int256) {
         return fundingTrackers[asset][market];
     }
 
+    /// @notice Returns funding trackers of `assets` and `markets`
+    /// @param assets Array of asset addresses
+    /// @param markets Array of market strings
     function getFundingTrackers(
         address[] calldata assets,
         string[] calldata markets

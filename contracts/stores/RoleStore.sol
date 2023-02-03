@@ -1,31 +1,46 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.13;
 
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 import '../utils/Governable.sol';
 
+/**
+ * @title  RoleStore
+ * @notice Role-based access control mechanism. Governance can grant and
+ *         revoke roles dynamically via {grantRole} and {revokeRole}
+ */
 contract RoleStore is Governable {
+    // Libraries
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    // Set of roles
     EnumerableSet.Bytes32Set internal roles;
+
+    // Role -> address
     mapping(bytes32 => EnumerableSet.AddressSet) internal roleMembers;
 
     constructor() Governable() {}
 
-    function grantRole(address account, bytes32 key) external onlyGov {
-        roles.add(key);
-        roleMembers[key].add(account);
+    /// @notice Grants `role` to `account`
+    /// @dev Only callable by governance
+    function grantRole(address account, bytes32 role) external onlyGov {
+        roles.add(role);
+        roleMembers[role].add(account);
     }
 
-    function revokeRole(address account, bytes32 key) external onlyGov {
-        roleMembers[key].remove(account);
+    /// @notice Revokes `role` from `account`
+    /// @dev Only callable by governance
+    function revokeRole(address account, bytes32 role) external onlyGov {
+        roleMembers[role].remove(account);
     }
 
-    function hasRole(address account, bytes32 key) external view returns (bool) {
-        return roleMembers[key].contains(account);
+    /// @notice Returns `true` if `account` has been granted `role`
+    function hasRole(address account, bytes32 role) external view returns (bool) {
+        return roleMembers[role].contains(account);
     }
 
+    /// @notice Returns number of roles
     function getRoleCount() external view returns (uint256) {
         return roles.length();
     }

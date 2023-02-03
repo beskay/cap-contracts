@@ -18,7 +18,12 @@ npx hardhat compile
 
 ## Testing
 
-TBD
+Foundry
+
+```
+FOUNDRY_PROFILE=lite forge test --match-contract <test_contract_name> -vvvv
+FOUNDRY_PROFILE=lite forge test --match-test <test_function_name> -vvvv
+```
 
 Static code analysis with slither
 
