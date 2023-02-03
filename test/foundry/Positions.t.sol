@@ -98,9 +98,9 @@ contract PositionsTest is Setup {
         vm.prank(user);
         positions.closePositionWithoutProfit(address(0), 'BTC-USD');
 
-        // margin should be transferred back to user (minus fee)
+        // margin should be transferred back to user
         uint256 fee = (btcLong.size * 10) / BPS_DIVIDER;
-        assertEq(user.balance, userBalanceBefore + btcLong.margin - fee);
+        assertEq(user.balance, userBalanceBefore + btcLong.margin);
     }
 
     function testRevertClosePositionWithoutProfit() public {
@@ -115,27 +115,121 @@ contract PositionsTest is Setup {
         positions.closePositionWithoutProfit(address(0), 'BTC-USD');
     }
 
-    function testAddMargin() public {}
+    function testAddMargin() public {
+        // execute btc long order
+        _submitAndExecuteLong(user, 10 ether);
 
-    function testAddMarginUSDC() public {}
+        uint256 userBalanceBefore = user.balance;
+        uint256 fundStoreBalanceBefore = address(fundStore).balance;
 
-    function testRemoveMargin() public {}
+        uint256 marginToAdd = 0.5 ether;
 
-    /*
-    function testCreditFee() public {
-        // ETH and BTC Long are executed, position size is 10k each, fee is 10 USDC each
-        uint256 fee = _getOrderFee('ETH-USD', ethLong.size) + _getOrderFee('BTC-USD', btcLong.size);
-        uint256 keeperFee = (fee * store.keeperFeeShare()) / BPS_DIVIDER;
-        fee -= keeperFee;
-        uint256 poolFee = (fee * store.poolFeeShare()) / BPS_DIVIDER;
-        uint256 treasuryFee = fee - poolFee;
+        vm.prank(user);
+        // Margin in function argument doesnt matter in that case, since margin = msg.value when asset is ETH
+        positions.addMargin{value: marginToAdd}(address(0), 'BTC-USD', 0.1 ether);
 
-        assertEq(store.poolBalance(), poolFee, '!poolFee');
-        assertEq(IERC20(usdc).balanceOf(treasury), treasuryFee, '!treasuryFee');
-        assertEq(store.getBalance(address(this)), keeperFee, '!keeperFee');
+        // Margin should be transferred in
+        assertEq(user.balance, userBalanceBefore - marginToAdd);
+        assertEq(address(fundStore).balance, fundStoreBalanceBefore + marginToAdd);
     }
 
-    */
+    function testAddMarginUSDC() public {
+        // execute btc long order
+        _submitAndExecuteLongAssetUSDC(user, 5000 * USDC_DECIMALS);
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 fundStoreBalanceBefore = usdc.balanceOf(address(fundStore));
+
+        uint256 marginToAdd = 500 * USDC_DECIMALS;
+
+        vm.prank(user);
+        positions.addMargin(address(usdc), 'BTC-USD', marginToAdd);
+
+        // Margin should be transferred in
+        // Margin in function argument doesnt matter in that case, since margin = msg.value when asset is ETH
+        assertEq(usdc.balanceOf(user), userBalanceBefore - marginToAdd);
+        assertEq(usdc.balanceOf(address(fundStore)), fundStoreBalanceBefore + marginToAdd);
+    }
+
+    function testRevertAddMargin() public {
+        // execute btc long order
+        _submitAndExecuteLong(user, 5 ether);
+
+        // revert due to min leverage
+        vm.prank(user);
+        vm.expectRevert('!min-leverage');
+        positions.addMargin{value: btcLong.size}(address(0), 'BTC-USD', 0.1 ether);
+
+        // revert due to margin == 0
+        vm.prank(user);
+        vm.expectRevert('!margin');
+        positions.addMargin{value: 0}(address(0), 'BTC-USD', 0.1 ether);
+    }
+
+    function testRemoveMargin() public {
+        // execute btc long order
+        _submitAndExecuteLong(user, 10 ether);
+
+        // margin of btc long order is 1 eth
+
+        uint256 userBalanceBefore = user.balance;
+        uint256 fundStoreBalanceBefore = address(fundStore).balance;
+
+        uint256 marginToRemove = 0.5 ether;
+
+        vm.prank(user);
+        positions.removeMargin(address(0), 'BTC-USD', marginToRemove);
+
+        // Margin should be transferred out
+        assertEq(user.balance, userBalanceBefore + marginToRemove);
+        assertEq(address(fundStore).balance, fundStoreBalanceBefore - marginToRemove);
+    }
+
+    function testRevertRemoveMargin() public {
+        // execute btc long order
+        _submitAndExecuteLong(user, 10 ether);
+
+        // should revert when trying to remove more than existing margin
+        vm.prank(user);
+        vm.expectRevert('!margin');
+        positions.removeMargin(address(0), 'BTC-USD', btcLong.margin + 1);
+
+        // should revert when max lev is exceeded
+        vm.prank(user);
+        vm.expectRevert('!max-leverage');
+        positions.removeMargin(address(0), 'BTC-USD', btcLong.margin - 1);
+
+        // should revert when unrealized loss of position is greater than remainingMargin * removeMarginBuffer
+
+        chainlink.setMarketPrice(linkBTC, 9500 * UNIT);
+
+        // upl of position is -0.5 ether, margin is 1 ether
+        // due to removeMarginBuffer removing 0.5 ether should fail
+        vm.prank(user);
+        vm.expectRevert();
+        positions.removeMargin(address(0), 'BTC-USD', 0.5 ether);
+    }
+
+    function testCreditFee() public {
+        // execute btc long order
+        _submitAndExecuteLong(user, 10 ether);
+
+        // calculate fees
+        uint256 fee = (btcLong.size * 10) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+
+        uint256 netFee = fee - keeperFee;
+
+        uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
+        uint256 feeToPool = (netFee * poolStore.feeShare()) / BPS_DIVIDER;
+        uint256 feeToTreasury = netFee - feeToStaking - feeToPool;
+
+        // validate fee payment
+        assertEq(poolStore.getBalance(address(0)), feeToPool, '!feeToPool');
+        assertEq(stakingStore.getPendingReward(address(0)), feeToStaking, '!feeToStaking');
+        assertEq(treasury.balance, feeToTreasury, '!feeToTreasury');
+        assertEq(user2.balance, INITIAL_ETH_BALANCE + keeperFee, '!keeperFee');
+    }
 
     // utils
     function _submitAndExecuteLong(address _user, uint256 _size) internal {
@@ -144,6 +238,29 @@ contract PositionsTest is Setup {
         uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
         vm.prank(_user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
+
+        // fast forward 2 seconds due to market.minOrderAge = 1;
+        skip(2);
+
+        // priceFeedData and order array
+        bytes[] memory priceFeedData = new bytes[](1);
+        priceFeedData[0] = priceFeedDataBTC;
+        uint256[] memory orderIds = new uint256[](1);
+        // get order id
+        uint256 oid = orderStore.oid();
+        orderIds[0] = oid;
+
+        // set keeper to user2, to test fees in {testCreditFees}
+        vm.prank(user2);
+        processor.executeOrders(orderIds, priceFeedData);
+    }
+
+    function _submitAndExecuteLongAssetUSDC(address _user, uint256 _size) internal {
+        // user submits BTC long order
+        btcLongAssetUSDC.size = _size;
+        uint256 value = btcLongAssetUSDC.margin + (btcLongAssetUSDC.size * 10) / BPS_DIVIDER; // margin + fee
+        vm.prank(_user);
+        orders.submitOrder(btcLongAssetUSDC, 0, 0);
 
         // fast forward 2 seconds due to market.minOrderAge = 1;
         skip(2);
