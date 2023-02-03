@@ -52,6 +52,22 @@ contract OrderTest is Setup {
         orders.submitOrder{value: 0}(ethLong, 0, 0);
     }
 
+    function testRefundMsgValueExcess() public {
+        uint256 userBalanceBefore = user.balance;
+        uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee
+
+        // user submits order and sends 10 ether with it
+        vm.prank(user);
+        orders.submitOrder{value: 10 ether}(ethLong, 0, 0);
+
+        // order should be registered
+        assertEq(orderStore.getUserOrderCount(user), 1);
+        assertEq(orderStore.getMarketOrderCount(), 1);
+
+        // msg.value excess should have been refunded
+        assertEq(user.balance, userBalanceBefore - value);
+    }
+
     function testRevertBelowMinSize() public {
         ethLong.size = 0.001 ether;
 

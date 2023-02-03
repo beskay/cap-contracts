@@ -182,6 +182,23 @@ contract Setup is Constants {
             expiry: 0,
             cancelOrderId: 0
         });
+    OrderStore.Order public btcShort =
+        OrderStore.Order({
+            orderId: 0,
+            user: address(0),
+            asset: address(0),
+            market: 'BTC-USD', // new market
+            margin: 1 ether,
+            size: 5 ether,
+            price: 0, // market order
+            fee: 0,
+            isLong: false, // short
+            orderType: 0,
+            isReduceOnly: false,
+            timestamp: 0,
+            expiry: 0,
+            cancelOrderId: 0
+        });
     OrderStore.Order public btcLongAssetUSDC =
         OrderStore.Order({
             orderId: 0,
@@ -357,8 +374,8 @@ contract Setup is Constants {
         console.log('Roles configured.');
 
         // Currencies
-        assetStore.set(address(0), AssetStore.Asset(0.01 ether, address(0)));
-        assetStore.set(address(usdc), AssetStore.Asset(10 * 10 ** 6, address(0)));
+        assetStore.set(address(0), AssetStore.Asset(0.01 ether, linkETH));
+        assetStore.set(address(usdc), AssetStore.Asset(10 * 10 ** 6, linkUSDC));
         console.log('Assets configured.');
 
         // Chainlink prices, 18 decimals
