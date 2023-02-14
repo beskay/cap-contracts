@@ -91,7 +91,8 @@ contract PoolTest is Setup {
 
     /// @param amount amount of ETH to add and remove (Fuzzer)
     function testFuzzDepositAndWithdraw(uint256 amount) public {
-        vm.assume(amount > 0 && amount <= 10 ether);
+        // bound fuzz input to a certain range
+        amount = bound(amount, BPS_DIVIDER + 1, 10 ether);
 
         // Deposit
         vm.prank(user);
@@ -127,7 +128,8 @@ contract PoolTest is Setup {
 
     /// @param amount amount of USDC to add and remove (Fuzzer)
     function testFuzzDepositAndWithdrawUSDC(uint256 amount) public {
-        vm.assume(amount > 0 && amount <= 100_000 * USDC_DECIMALS);
+        // bound fuzz input to a certain range
+        amount = bound(amount, BPS_DIVIDER + 1, 100_000 * USDC_DECIMALS);
 
         // Deposit
         vm.prank(user);

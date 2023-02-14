@@ -187,7 +187,7 @@ contract Pool is Roles {
     /// @param asset Asset address, e.g. address(0) for ETH
     /// @param amount Amount to be withdrawn
     function withdraw(address asset, uint256 amount) public {
-        require(amount > 0, '!amount');
+        require(amount > BPS_DIVIDER, '!amount');
         require(assetStore.isSupported(asset), '!asset');
 
         address user = msg.sender;
