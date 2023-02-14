@@ -68,9 +68,15 @@ contract StakingStore is Roles {
     /// @dev Only callable by other protocol contracts
     function incrementRewardPerToken(address asset) external onlyContract {
         if (totalSupply == 0) return;
-        uint256 amount = (pendingReward[asset] * UNIT) / totalSupply;
+
+        // amount which cant be withdrawn due to precision loss
+        uint256 nonWithdrawableFunds = (pendingReward[asset] * UNIT) % totalSupply;
+        // substract nonWithdrawableFunds from pendingReward to eliminate precision loss
+        uint256 amount = (pendingReward[asset] * UNIT - nonWithdrawableFunds) / totalSupply;
+
         rewardPerTokenSum[asset] += amount;
-        pendingReward[asset] = 0;
+        // set pendingReward to nonWithdrawableFunds to prevent loss of funds
+        pendingReward[asset] = nonWithdrawableFunds;
     }
 
     /// @notice Updates claimable reward of `asset` by `user`
