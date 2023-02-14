@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.13;
 
+import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@pythnetwork/pyth-sdk-solidity/IPyth.sol';
@@ -32,6 +33,9 @@ import '../utils/Roles.sol';
  *         a cooldown period
  */
 contract Processor is Roles, ReentrancyGuard {
+    // Libraries
+    using Address for address payable;
+
     // Constants
     uint256 public constant BPS_DIVIDER = 10000;
 
@@ -149,6 +153,12 @@ contract Processor is Roles, ReentrancyGuard {
 
             (bool status, string memory reason) = _executeOrder(orderIds[i], price, false, msg.sender);
             if (!status) orders.cancelOrder(orderIds[i], reason);
+        }
+
+        // Refund msg.value excess, if any
+        if (msg.value > fee) {
+            uint256 diff = msg.value - fee;
+            payable(msg.sender).sendValue(diff);
         }
     }
 
@@ -309,6 +319,12 @@ contract Processor is Roles, ReentrancyGuard {
             if (!status) {
                 emit LiquidationError(users[i], assets[i], markets[i], price, reason);
             }
+        }
+
+        // Refund msg.value excess, if any
+        if (msg.value > fee) {
+            uint256 diff = msg.value - fee;
+            payable(msg.sender).sendValue(diff);
         }
     }
 

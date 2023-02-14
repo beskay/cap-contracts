@@ -46,7 +46,7 @@ contract ProcessorTest is Setup {
         orderIds[1] = 2;
 
         // execute market orders
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: 0.01 ether}(orderIds, priceFeedData);
 
         // market orders should be executed
         assertEq(orderStore.getMarketOrderCount(), 0, '!marketOrderCount');
@@ -236,7 +236,7 @@ contract ProcessorTest is Setup {
             5000 * UNIT,
             fee
         );
-        processor.liquidatePositions(userArray, assetArray, marketArray, priceFeedData);
+        processor.liquidatePositions{value: 0.01 ether}(userArray, assetArray, marketArray, priceFeedData);
     }
 
     function testSelfLiquidatePosition() public {
