@@ -6,6 +6,7 @@ import 'forge-std/Test.sol';
 contract Constants is Test {
     // Roles
     bytes32 constant CONTRACT_ROLE = keccak256('CONTRACT');
+    bytes32 constant TEST_ROLE = keccak256('TEST');
 
     // Constants
     uint256 public constant MAX_UINT256 = 2 ** 256 - 1;

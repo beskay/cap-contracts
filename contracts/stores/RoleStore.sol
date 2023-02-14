@@ -25,14 +25,21 @@ contract RoleStore is Governable {
     /// @notice Grants `role` to `account`
     /// @dev Only callable by governance
     function grantRole(address account, bytes32 role) external onlyGov {
-        roles.add(role);
-        roleMembers[role].add(account);
+        // add role if not already present
+        if (!roles.contains(role)) roles.add(role);
+
+        require(roleMembers[role].add(account));
     }
 
     /// @notice Revokes `role` from `account`
     /// @dev Only callable by governance
     function revokeRole(address account, bytes32 role) external onlyGov {
-        roleMembers[role].remove(account);
+        require(roleMembers[role].remove(account));
+
+        // Remove role if it has no longer any members
+        if (roleMembers[role].length() == 0) {
+            roles.remove(role);
+        }
     }
 
     /// @notice Returns `true` if `account` has been granted `role`
