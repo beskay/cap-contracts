@@ -21,6 +21,7 @@ contract FundingStore is Roles {
     /// @dev Only callable by governance
     /// @param amount new funding interval, in seconds
     function setFundingInterval(uint256 amount) external onlyGov {
+        require(amount > 0, '!amount');
         fundingInterval = amount;
     }
 
