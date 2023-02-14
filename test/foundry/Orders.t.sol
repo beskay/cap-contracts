@@ -36,6 +36,36 @@ contract OrderTest is Setup {
         assertEq(usdc.balanceOf(address(fundStore)), value);
     }
 
+    function testSubmitTPSLOrder() public {
+        uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
+
+        // set expiry for testing
+        btcLong.expiry = block.timestamp + 100;
+
+        vm.prank(user);
+        orders.submitOrder{value: value}(btcLong, BTC_TP_PRICE, BTC_SL_PRICE);
+
+        // orders should be registered
+        assertEq(orderStore.getUserOrderCount(user), 3);
+        assertEq(orderStore.getMarketOrderCount(), 1);
+        assertEq(orderStore.getTriggerOrderCount(), 2);
+
+        // Margin + fee should be transferred in
+        assertEq(address(fundStore).balance, value);
+
+        OrderStore.Order[] memory userOrders = orderStore.getUserOrders(user);
+
+        // check expiry
+        assertEq(userOrders[0].expiry, block.timestamp + 100);
+        assertEq(userOrders[1].expiry, 0);
+        assertEq(userOrders[2].expiry, 0);
+
+        // check isLong
+        assertEq(userOrders[0].isLong, true);
+        assertEq(userOrders[1].isLong, false);
+        assertEq(userOrders[2].isLong, false);
+    }
+
     function testCancelOrder() public {
         uint256 userBalanceBefore = user.balance;
         uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee

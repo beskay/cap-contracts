@@ -125,6 +125,9 @@ contract Orders is Roles {
             // long -> short, short -> long for take profit / stop loss order
             params.isLong = !params.isLong;
 
+            // reset order expiry for TP/SL orders
+            if (params.expiry > 0) params.expiry = 0;
+
             // submit take profit order
             if (tpPrice > 0) {
                 params.price = tpPrice;
