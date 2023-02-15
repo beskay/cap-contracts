@@ -1,14 +1,14 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("@nomicfoundation/hardhat-chai-matchers");
-require('dotenv').config()
+require('@nomicfoundation/hardhat-toolbox');
+require('@nomicfoundation/hardhat-chai-matchers');
+require('dotenv').config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  defaultNetwork: "hardhat",
+  defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
       initialBaseFeePerGas: 0,
-      gasPrice: 0
+      gasPrice: 0,
       // allowUnlimitedContractSize: true,
       // forking: {
       //   url: process.env.FORKING_URL_ARBITRUM
@@ -31,7 +31,7 @@ module.exports = {
     // },
     arbitrum: {
       url: 'https://arb1.arbitrum.io/rpc',
-      accounts: [process.env.ARBITRUM_PKEY]
+      accounts: [process.env.ARBITRUM_PKEY],
     },
     // avalanche: {
     //   url: 'https://api.avax.network/ext/bc/C/rpc',
@@ -39,15 +39,17 @@ module.exports = {
     // }
   },
   solidity: {
-    compilers: [{
-      version: "0.8.17",
-      settings: {
-        viaIR: true,
-        optimizer: {
-          enabled: true,
-          runs: 10
-        }
-      }
-    }]
-  }
+    compilers: [
+      {
+        version: '0.8.17',
+        settings: {
+          viaIR: true,
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+        },
+      },
+    ],
+  },
 };
