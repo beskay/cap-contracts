@@ -56,7 +56,6 @@ contract PoolTest is Setup {
 
         // balances before
         uint256 userBalanceBefore = user.balance;
-        uint256 poolBalanceBefore = poolStore.getBalance(address(0));
         uint256 bufferBalanceBefore = poolStore.getBufferBalance(address(0));
 
         // set ETH price to take profit price
@@ -79,9 +78,6 @@ contract PoolTest is Setup {
         chainlink.setMarketPrice(linkBTC, BTC_TP_PRICE * UNIT);
         // execute take profit order
         processor.selfExecuteOrder(5);
-
-        // calculate trader win
-        int256 pnl2 = (int256(btcLong.size) * (int256(BTC_TP_PRICE) - int256(BTC_PRICE))) / int256(BTC_PRICE);
 
         // buffer should be empty and remaining profit should be paid out from pool
         assertEq(poolStore.getBufferBalance(address(0)), 0);
@@ -110,7 +106,6 @@ contract PoolTest is Setup {
 
         // withdrawal fee
         uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(0))) / BPS_DIVIDER;
-        uint256 amountMinusFee = amount - feeAmount;
 
         //user balance should be initial balance - fee
         assertEq(user.balance, INITIAL_ETH_BALANCE - feeAmount);
@@ -147,7 +142,6 @@ contract PoolTest is Setup {
 
         // withdrawal fee
         uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(usdc))) / BPS_DIVIDER;
-        uint256 amountMinusFee = amount - feeAmount;
 
         // user balance should be initial balance - fee
         assertEq(usdc.balanceOf(user), INITIAL_USDC_BALANCE - feeAmount);
