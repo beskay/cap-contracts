@@ -36,6 +36,7 @@ contract RiskStore is Roles {
     /// @param asset Address of base asset, e.g. address(0) for ETH
     /// @param amount Max open interest to set
     function setMaxOI(string calldata market, address asset, uint256 amount) external onlyGov {
+        require(amount > 0, '!amount');
         maxOI[market][asset] = amount;
     }
 
@@ -43,6 +44,7 @@ contract RiskStore is Roles {
     /// @dev Only callable by governance
     /// @param bps Hourly pool decay in bps
     function setPoolHourlyDecay(uint256 bps) external onlyGov {
+        require(bps < BPS_DIVIDER, '!bps');
         poolHourlyDecay = bps;
     }
 
@@ -51,6 +53,7 @@ contract RiskStore is Roles {
     /// @param asset Address of asset, e.g. address(0) for ETH
     /// @param bps Pool profit limit in bps
     function setPoolProfitLimit(address asset, uint256 bps) external onlyGov {
+        require(bps < BPS_DIVIDER, '!bps');
         poolProfitLimit[asset] = bps;
     }
 

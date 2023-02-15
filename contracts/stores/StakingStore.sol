@@ -7,6 +7,7 @@ import '../utils/Roles.sol';
 /// @notice Persistent storage for Staking.sol
 contract StakingStore is Roles {
     // Constants
+    uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant UNIT = 10 ** 18;
 
     // Fee share for CAP stakers
@@ -30,6 +31,7 @@ contract StakingStore is Roles {
     /// @dev Only callable by governance
     /// @param bps fee share in bps
     function setFeeShare(uint256 bps) external onlyGov {
+        require(bps < BPS_DIVIDER, '!bps');
         feeShare = bps;
     }
 
