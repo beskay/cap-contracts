@@ -474,25 +474,26 @@ contract Positions is Roles {
     ) public onlyContract {
         if (fee == 0) return;
 
-        uint256 keeperFee;
+        // multiply fee by UNIT (10^18) to increase position
+        fee = fee * UNIT;
 
+        uint256 keeperFee;
         if (keeper != address(0)) {
             keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
         }
 
         // Calculate fees
         uint256 netFee = fee - keeperFee;
-
         uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
         uint256 feeToPool = (netFee * poolStore.feeShare()) / BPS_DIVIDER;
         uint256 feeToTreasury = netFee - feeToStaking - feeToPool;
 
         // Increment balances, transfer fees out
-        poolStore.incrementBalance(asset, feeToPool);
-        stakingStore.incrementPendingReward(asset, feeToStaking);
-
-        fundStore.transferOut(asset, DS.getAddress('treasury'), feeToTreasury);
-        fundStore.transferOut(asset, keeper, keeperFee);
+        // Divide fee by UNIT to get original fee value back
+        poolStore.incrementBalance(asset, feeToPool / UNIT);
+        stakingStore.incrementPendingReward(asset, feeToStaking / UNIT);
+        fundStore.transferOut(asset, DS.getAddress('treasury'), feeToTreasury / UNIT);
+        fundStore.transferOut(asset, keeper, keeperFee / UNIT);
 
         emit FeePaid(
             orderId,
