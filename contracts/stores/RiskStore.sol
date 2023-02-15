@@ -12,7 +12,6 @@ import '../utils/Roles.sol';
 contract RiskStore is Roles {
     // Constants
     uint256 public constant BPS_DIVIDER = 10000;
-    uint256 public constant MAX_POOL_PROFIT_LIMIT = 1000; // in bps, 10%
 
     mapping(string => mapping(address => uint256)) private maxOI; // market => asset => amount
 
@@ -52,7 +51,6 @@ contract RiskStore is Roles {
     /// @param asset Address of asset, e.g. address(0) for ETH
     /// @param bps Pool profit limit in bps
     function setPoolProfitLimit(address asset, uint256 bps) external onlyGov {
-        require(bps <= MAX_POOL_PROFIT_LIMIT, '!profit-limit');
         poolProfitLimit[asset] = bps;
     }
 
