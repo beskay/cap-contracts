@@ -21,10 +21,4 @@ contract Roles is Governable {
         require(roleStore.hasRole(msg.sender, CONTRACT), '!contract-role');
         _;
     }
-
-    /// @dev Reverts if caller address has not the contract role or gov
-    modifier onlyContractOrGov() {
-        require(msg.sender == this.gov() || roleStore.hasRole(msg.sender, CONTRACT), '!contract-or-gov');
-        _;
-    }
 }
