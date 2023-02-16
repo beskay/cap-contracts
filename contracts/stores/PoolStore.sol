@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
@@ -12,6 +12,7 @@ contract PoolStore is Roles {
     using SafeERC20 for IERC20;
 
     // Constants
+    uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant MAX_POOL_WITHDRAWAL_FEE = 500; // in bps = 5%
 
     // State variables
@@ -33,14 +34,16 @@ contract PoolStore is Roles {
     /// @dev Only callable by governance
     /// @param bps fee share in bps
     function setFeeShare(uint256 bps) external onlyGov {
+        require(bps < BPS_DIVIDER, '!bps');
         feeShare = bps;
     }
 
     /// @notice Set buffer payout period
     /// @dev Only callable by governance
-    /// @param time Buffer payout period in seconds, default is 7 days (604800 seconds)
-    function setBufferPayoutPeriod(uint256 time) external onlyGov {
-        bufferPayoutPeriod = time;
+    /// @param period Buffer payout period in seconds, default is 7 days (604800 seconds)
+    function setBufferPayoutPeriod(uint256 period) external onlyGov {
+        require(period > 0, '!period');
+        bufferPayoutPeriod = period;
     }
 
     /// @notice Set pool withdrawal fee

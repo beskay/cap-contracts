@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import './Governable.sol';
 import '../stores/RoleStore.sol';
@@ -19,12 +19,6 @@ contract Roles is Governable {
     /// @dev Reverts if caller address has not the contract role
     modifier onlyContract() {
         require(roleStore.hasRole(msg.sender, CONTRACT), '!contract-role');
-        _;
-    }
-
-    /// @dev Reverts if caller address has not the contract role or gov
-    modifier onlyContractOrGov() {
-        require(msg.sender == this.gov() || roleStore.hasRole(msg.sender, CONTRACT), '!contract-or-gov');
         _;
     }
 }

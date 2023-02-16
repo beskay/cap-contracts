@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 /// @title Governable
 /// @notice Basic access control mechanism, gov has access to certain functions

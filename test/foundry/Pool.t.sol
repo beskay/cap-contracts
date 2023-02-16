@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import './utils/Setup.t.sol';
 
@@ -56,7 +56,6 @@ contract PoolTest is Setup {
 
         // balances before
         uint256 userBalanceBefore = user.balance;
-        uint256 poolBalanceBefore = poolStore.getBalance(address(0));
         uint256 bufferBalanceBefore = poolStore.getBufferBalance(address(0));
 
         // set ETH price to take profit price
@@ -80,9 +79,6 @@ contract PoolTest is Setup {
         // execute take profit order
         processor.selfExecuteOrder(5);
 
-        // calculate trader win
-        int256 pnl2 = (int256(btcLong.size) * (int256(BTC_TP_PRICE) - int256(BTC_PRICE))) / int256(BTC_PRICE);
-
         // buffer should be empty and remaining profit should be paid out from pool
         assertEq(poolStore.getBufferBalance(address(0)), 0);
         // pool balance should be a bit over 4.8 ether due to pool fees
@@ -91,7 +87,8 @@ contract PoolTest is Setup {
 
     /// @param amount amount of ETH to add and remove (Fuzzer)
     function testFuzzDepositAndWithdraw(uint256 amount) public {
-        vm.assume(amount > 0 && amount <= 10 ether);
+        // bound fuzz input to a certain range
+        amount = bound(amount, BPS_DIVIDER + 1, 10 ether);
 
         // Deposit
         vm.prank(user);
@@ -109,7 +106,6 @@ contract PoolTest is Setup {
 
         // withdrawal fee
         uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(0))) / BPS_DIVIDER;
-        uint256 amountMinusFee = amount - feeAmount;
 
         //user balance should be initial balance - fee
         assertEq(user.balance, INITIAL_ETH_BALANCE - feeAmount);
@@ -127,7 +123,8 @@ contract PoolTest is Setup {
 
     /// @param amount amount of USDC to add and remove (Fuzzer)
     function testFuzzDepositAndWithdrawUSDC(uint256 amount) public {
-        vm.assume(amount > 0 && amount <= 100_000 * USDC_DECIMALS);
+        // bound fuzz input to a certain range
+        amount = bound(amount, BPS_DIVIDER + 1, 100_000 * USDC_DECIMALS);
 
         // Deposit
         vm.prank(user);
@@ -145,7 +142,6 @@ contract PoolTest is Setup {
 
         // withdrawal fee
         uint256 feeAmount = (amount * poolStore.getWithdrawalFee(address(usdc))) / BPS_DIVIDER;
-        uint256 amountMinusFee = amount - feeAmount;
 
         // user balance should be initial balance - fee
         assertEq(usdc.balanceOf(user), INITIAL_USDC_BALANCE - feeAmount);

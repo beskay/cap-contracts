@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
@@ -25,6 +25,7 @@ contract PositionStore is Roles {
     }
 
     // Constants
+    uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant MAX_KEEPER_FEE_SHARE = 2000; // 20%
 
     // State variables
@@ -46,6 +47,7 @@ contract PositionStore is Roles {
     /// @dev Only callable by governance
     /// @param bps new `removeMarginBuffer` in bps
     function setRemoveMarginBuffer(uint256 bps) external onlyGov {
+        require(bps < BPS_DIVIDER, '!bps');
         removeMarginBuffer = bps;
     }
 

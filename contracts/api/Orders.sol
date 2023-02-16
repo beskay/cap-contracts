@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import '@openzeppelin/contracts/utils/Address.sol';
 
@@ -124,6 +124,9 @@ contract Orders is Roles {
 
             // long -> short, short -> long for take profit / stop loss order
             params.isLong = !params.isLong;
+
+            // reset order expiry for TP/SL orders
+            if (params.expiry > 0) params.expiry = 0;
 
             // submit take profit order
             if (tpPrice > 0) {

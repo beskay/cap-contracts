@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import '../utils/Roles.sol';
 
@@ -19,9 +19,10 @@ contract FundingStore is Roles {
 
     /// @notice updates `fundingInterval`
     /// @dev Only callable by governance
-    /// @param amount new funding interval, in seconds
-    function setFundingInterval(uint256 amount) external onlyGov {
-        fundingInterval = amount;
+    /// @param interval new funding interval, in seconds
+    function setFundingInterval(uint256 interval) external onlyGov {
+        require(interval > 0, '!interval');
+        fundingInterval = interval;
     }
 
     /// @notice Updates `lastUpdated` mapping

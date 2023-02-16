@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.13;
+pragma solidity 0.8.17;
 
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
@@ -62,6 +62,8 @@ contract OrderStore is Roles {
     /// @dev Only callable by governance
     /// @param amount Duration in seconds
     function setMaxMarketOrderTTL(uint256 amount) external onlyGov {
+        require(amount > 0, '!amount');
+        require(amount < maxTriggerOrderTTL, 'amount > maxTriggerOrderTTL');
         maxMarketOrderTTL = amount;
     }
 
@@ -69,6 +71,8 @@ contract OrderStore is Roles {
     /// @dev Only callable by governance
     /// @param amount Duration in seconds
     function setMaxTriggerOrderTTL(uint256 amount) external onlyGov {
+        require(amount > 0, '!amount');
+        require(amount > maxMarketOrderTTL, 'amount < maxMarketOrderTTL');
         maxTriggerOrderTTL = amount;
     }
 
@@ -76,6 +80,7 @@ contract OrderStore is Roles {
     /// @dev Only callable by governance
     /// @param amount Duration in seconds
     function setChainlinkCooldown(uint256 amount) external onlyGov {
+        require(amount > 0, '!amount');
         chainlinkCooldown = amount;
     }
 
