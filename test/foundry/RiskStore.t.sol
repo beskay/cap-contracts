@@ -134,7 +134,7 @@ contract RiskStoreTest is Setup {
         orderIds[0] = oid;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function _submitAndExecuteReduceOnly(address _user, uint256 _size, bytes memory _priceFeedData) internal {
@@ -155,7 +155,7 @@ contract RiskStoreTest is Setup {
         orderIds[0] = oid;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     // needed to receive Ether (e.g. keeper fee)

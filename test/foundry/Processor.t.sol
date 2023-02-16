@@ -45,11 +45,19 @@ contract ProcessorTest is Setup {
         orderIds[0] = 1;
         orderIds[1] = 2;
 
+        // get keeper fee
+        uint256 fee = (btcLong.size * 10 + ethShort.size * 10) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+
         // execute market orders
+        uint256 balanceBefore = address(this).balance; // save balance before to validate fee refunding
         processor.executeOrders{value: 0.01 ether}(orderIds, priceFeedData);
 
         // market orders should be executed
         assertEq(orderStore.getMarketOrderCount(), 0, '!marketOrderCount');
+
+        // excess fee payment should be refunded
+        assertEq(address(this).balance, balanceBefore + keeperFee - PYTH_FEE * 2);
     }
 
     function testExecuteLimitOrder() public {
@@ -78,7 +86,7 @@ contract ProcessorTest is Setup {
         orderIds[0] = 1;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
 
         // limit order should be executed
         assertEq(orderStore.getTriggerOrderCount(), 0, '!triggerOrderCount');
@@ -110,7 +118,7 @@ contract ProcessorTest is Setup {
         orderIds[0] = 1;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
 
         // stop order should be executed
         assertEq(orderStore.getTriggerOrderCount(), 0, '!triggerOrderCount');
@@ -154,7 +162,7 @@ contract ProcessorTest is Setup {
         // should cancel order
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(1, user, '!reduce');
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function testProtectedOrder() public {
@@ -179,7 +187,7 @@ contract ProcessorTest is Setup {
         // should cancel protected market order
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(1, user, '!protected');
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function testLiquidatePosition() public {
@@ -199,7 +207,7 @@ contract ProcessorTest is Setup {
         orderIds[0] = 1;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
 
         // BTC crashes 50%, liquidating open btc long position
         chainlink.setMarketPrice(linkBTC, 5000 * UNIT);
@@ -256,7 +264,7 @@ contract ProcessorTest is Setup {
         orderIds[0] = 1;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
 
         // BTC crashes 50%, liquidating open btc long position
         chainlink.setMarketPrice(linkBTC, 5000 * UNIT);
@@ -293,7 +301,7 @@ contract ProcessorTest is Setup {
         // executing order before market.minOrderAge passed, should be skipped
         vm.expectEmit(true, true, true, true);
         emit OrderSkipped(1, 'BTC-USD', 0, 0, '!early');
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function testSkipOrderStale() public {
@@ -314,7 +322,7 @@ contract ProcessorTest is Setup {
 
         vm.expectEmit(true, true, true, true);
         emit OrderSkipped(1, 'BTC-USD', 10000 * UNIT, block.timestamp - 21, '!stale');
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function testChainlinkDeviation() public {
@@ -336,7 +344,7 @@ contract ProcessorTest is Setup {
         chainlink.setMarketPrice(linkBTC, 9000 * UNIT);
 
         // execute orders
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
 
         // order shouldnt be executed due to price deviation
         assertEq(orderStore.getUserOrderCount(user), 1, '!userOrderCount');

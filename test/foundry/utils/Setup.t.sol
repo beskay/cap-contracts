@@ -244,8 +244,8 @@ contract Setup is Constants {
         usdc = new MockToken('USDC', 'USDC', 6);
         //console.log('USDC token deployed to', address(usdc));
 
-        // Mock Pyth: _validTimePeriod = 10 seconds, _singleUpdateFeeInWei = 0
-        pyth = new MockPyth(10, 0);
+        // Mock Pyth: _validTimePeriod = 10 seconds, _singleUpdateFeeInWei = 1000
+        pyth = new MockPyth(10, PYTH_FEE);
         //console.log('MockPyth deployed to', address(pyth));
 
         // Mock chainlink

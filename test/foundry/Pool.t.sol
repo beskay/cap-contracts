@@ -182,7 +182,7 @@ contract PoolTest is Setup {
         orderIds[1] = 4;
 
         // execute market orders
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE * 2}(orderIds, priceFeedData);
 
         // make sure market orders are executed
         assertEq(orderStore.getMarketOrderCount(), 0);

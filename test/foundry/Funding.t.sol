@@ -85,7 +85,7 @@ contract FundingTest is Setup {
         orderIds[0] = oid;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function _submitAndExecuteShort(address _user, uint256 _size) internal {
@@ -118,7 +118,7 @@ contract FundingTest is Setup {
         orderIds[0] = oid;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     // needed to receive Ether (e.g. keeper fee)

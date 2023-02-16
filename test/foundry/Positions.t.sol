@@ -228,7 +228,7 @@ contract PositionsTest is Setup {
         assertEq(poolStore.getBalance(address(0)), feeToPool, '!feeToPool');
         assertEq(stakingStore.getPendingReward(address(0)), feeToStaking, '!feeToStaking');
         assertEq(treasury.balance, feeToTreasury, '!feeToTreasury');
-        assertEq(user2.balance, INITIAL_ETH_BALANCE + keeperFee, '!keeperFee');
+        assertEq(user2.balance, INITIAL_ETH_BALANCE + keeperFee - PYTH_FEE, '!keeperFee');
     }
 
     function testCreditFeeAssetUSDC() public {
@@ -273,7 +273,7 @@ contract PositionsTest is Setup {
 
         // set keeper to user2, to test fees in {testCreditFees}
         vm.prank(user2);
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function _submitAndExecuteLongAssetUSDC(address _user, uint256 _size) internal {
@@ -296,7 +296,7 @@ contract PositionsTest is Setup {
 
         // set keeper to user2, to test fees in {testCreditFeesUSDC}
         vm.prank(user2);
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function _submitAndExecuteShort(address _user, uint256 _size) internal {
@@ -318,7 +318,7 @@ contract PositionsTest is Setup {
         orderIds[0] = oid;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     function _submitAndExecuteReduceOnly(address _user, uint256 _size) internal {
@@ -339,7 +339,7 @@ contract PositionsTest is Setup {
         orderIds[0] = oid;
 
         // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     // needed to receive Ether (e.g. keeper fee)
