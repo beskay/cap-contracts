@@ -500,11 +500,11 @@ contract Positions is Roles {
             user,
             asset,
             market,
-            fee, // paid by user
-            feeToPool,
-            feeToStaking,
-            feeToTreasury,
-            keeperFee,
+            fee / UNIT, // paid by user
+            feeToPool / UNIT,
+            feeToStaking / UNIT,
+            feeToTreasury / UNIT,
+            keeperFee / UNIT,
             isLiquidation
         );
     }
