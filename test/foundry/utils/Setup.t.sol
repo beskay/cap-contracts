@@ -80,6 +80,23 @@ contract Setup is Constants {
             expiry: 0,
             cancelOrderId: 0
         });
+    OrderStore.Order public ethLongAssetUSDC =
+        OrderStore.Order({
+            orderId: 0,
+            user: address(0),
+            asset: address(0), // will be set after contract deployment
+            market: 'ETH-USD',
+            margin: 1000 * USDC_DECIMALS,
+            size: 5000 * USDC_DECIMALS,
+            price: 0, // market order
+            fee: 0,
+            isLong: true, // long
+            orderType: 0,
+            isReduceOnly: false,
+            timestamp: 0,
+            expiry: 0,
+            cancelOrderId: 0
+        });
     OrderStore.Order public ethShort =
         OrderStore.Order({
             orderId: 0,
@@ -449,18 +466,22 @@ contract Setup is Constants {
         poolStore.setWithdrawalFee(address(usdc), 100); // 1%
         //console.log('PoolStore set up');
 
+        // set USDC address of orders
+        btcLongAssetUSDC.asset = address(usdc);
+        ethLongAssetUSDC.asset = address(usdc);
+
         // Mint and approve some mock tokens
 
         usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
-        cap.mint(1000 * UNIT);
+        cap.mint(INITIAL_CAP_BALANCE);
         cap.approve(address(fundStore), MAX_UINT256);
 
         // To user
         vm.startPrank(user);
         usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
-        cap.mint(1000 * UNIT);
+        cap.mint(INITIAL_CAP_BALANCE);
         cap.approve(address(fundStore), MAX_UINT256);
         vm.stopPrank();
 
@@ -468,19 +489,27 @@ contract Setup is Constants {
         vm.startPrank(user2);
         usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
-        cap.mint(1000 * UNIT);
+        cap.mint(INITIAL_CAP_BALANCE);
+        cap.approve(address(fundStore), MAX_UINT256);
+        vm.stopPrank();
+
+        // To user3
+        vm.startPrank(user3);
+        usdc.mint(INITIAL_USDC_BALANCE);
+        usdc.approve(address(fundStore), MAX_UINT256);
+        cap.mint(INITIAL_CAP_BALANCE);
         cap.approve(address(fundStore), MAX_UINT256);
         vm.stopPrank();
 
         //console.log('Minted mock tokens.');
 
         // Fund accounts
+
         vm.deal(msg.sender, INITIAL_ETH_BALANCE);
         vm.deal(user, INITIAL_ETH_BALANCE);
         vm.deal(user2, INITIAL_ETH_BALANCE);
-        //console.log('User accounts funded.');
+        vm.deal(user3, INITIAL_ETH_BALANCE);
 
-        // set USDC address of orders
-        btcLongAssetUSDC.asset = address(usdc);
+        //console.log('User accounts funded.');
     }
 }
