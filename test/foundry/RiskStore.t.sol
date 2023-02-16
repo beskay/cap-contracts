@@ -106,7 +106,7 @@ contract RiskStoreTest is Setup {
         _submitAndExecuteLong(user, 5 ether);
 
         btcLong.size = 5.01 ether;
-        uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
 
         // should revert
         vm.prank(user2);
@@ -118,7 +118,7 @@ contract RiskStoreTest is Setup {
     function _submitAndExecuteLong(address _user, uint256 _size) internal {
         // user submits BTC long order
         btcLong.size = _size;
-        uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(_user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
 

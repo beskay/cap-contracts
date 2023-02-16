@@ -25,12 +25,12 @@ contract ProcessorTest is Setup {
 
     function testExecuteMarketOrder() public {
         // user submits BTC long order
-        uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
 
         // user2 submits ETH short order
-        value = ethShort.margin + (ethShort.size * 10) / BPS_DIVIDER;
+        value = ethShort.margin + (ethShort.size * MARKET_FEE) / BPS_DIVIDER;
         vm.prank(user2);
         orders.submitOrder{value: value}(ethShort, 0, 0);
 
@@ -46,7 +46,7 @@ contract ProcessorTest is Setup {
         orderIds[1] = 2;
 
         // get keeper fee
-        uint256 fee = (btcLong.size * 10 + ethShort.size * 10) / BPS_DIVIDER;
+        uint256 fee = ((btcLong.size + ethShort.size) * MARKET_FEE) / BPS_DIVIDER;
         uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
 
         // execute market orders
@@ -62,7 +62,7 @@ contract ProcessorTest is Setup {
 
     function testExecuteLimitOrder() public {
         // user submits ETH limit short
-        uint256 value = ethLimitShort.margin + (ethLimitShort.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = ethLimitShort.margin + (ethLimitShort.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(ethLimitShort, 0, 0);
 
@@ -94,7 +94,7 @@ contract ProcessorTest is Setup {
 
     function testExecuteStopOrder() public {
         // user submits ETH limit short
-        uint256 value = ethStopShort.margin + (ethStopShort.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = ethStopShort.margin + (ethStopShort.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(ethStopShort, 0, 0);
 
@@ -126,7 +126,7 @@ contract ProcessorTest is Setup {
 
     function testSelfExecuteOrder() public {
         // user submits ETH stop long order
-        uint256 value = ethStopLong.margin + (ethStopLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = ethStopLong.margin + (ethStopLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(ethStopLong, 0, 0);
 
@@ -171,7 +171,7 @@ contract ProcessorTest is Setup {
         ethLong.price = 990 * UNIT;
 
         // user submits order
-        uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = ethLong.margin + (ethLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(ethLong, 0, 0);
 
@@ -192,7 +192,7 @@ contract ProcessorTest is Setup {
 
     function testLiquidatePosition() public {
         // user submits BTC long order
-        uint256 fee = (btcLong.size * 10) / BPS_DIVIDER;
+        uint256 fee = (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
         uint256 value = btcLong.margin + fee; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
@@ -249,7 +249,7 @@ contract ProcessorTest is Setup {
 
     function testSelfLiquidatePosition() public {
         // user submits BTC long order
-        uint256 fee = (btcLong.size * 10) / BPS_DIVIDER;
+        uint256 fee = (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
         uint256 value = btcLong.margin + fee; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
@@ -287,7 +287,7 @@ contract ProcessorTest is Setup {
 
     function testSkipOrderTooEarly() public {
         // user submits BTC long order
-        uint256 fee = (btcLong.size * 10) / BPS_DIVIDER;
+        uint256 fee = (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
         uint256 value = btcLong.margin + fee; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
@@ -306,7 +306,7 @@ contract ProcessorTest is Setup {
 
     function testSkipOrderStale() public {
         // user submits BTC long order
-        uint256 fee = (btcLong.size * 10) / BPS_DIVIDER;
+        uint256 fee = (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
         uint256 value = btcLong.margin + fee; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
@@ -327,7 +327,7 @@ contract ProcessorTest is Setup {
 
     function testChainlinkDeviation() public {
         // user submits BTC long order
-        uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         vm.prank(user);
         orders.submitOrder{value: value}(btcLong, 0, 0);
 

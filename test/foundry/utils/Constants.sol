@@ -16,6 +16,7 @@ contract Constants is Test {
     uint256 public constant INITIAL_ETH_BALANCE = 10 ether;
     uint256 public constant INITIAL_USDC_BALANCE = 100_000 * USDC_DECIMALS;
     uint256 public constant PYTH_FEE = 1000; // 1000 wei
+    uint256 public constant MARKET_FEE = 10; // in bps
 
     // Prices for test orders
     uint256 public constant ETH_PRICE = 1000;

@@ -67,7 +67,7 @@ contract PoolTest is Setup {
         int256 pnl = (int256(ethLong.size) * (int256(ETH_TP_PRICE) - int256(ETH_PRICE))) / int256(ETH_PRICE);
 
         // TP order is reduce only, fees are taken from position margin
-        uint256 fee = (ethLong.size * 10) / BPS_DIVIDER;
+        uint256 fee = (ethLong.size * MARKET_FEE) / BPS_DIVIDER;
 
         // user balance should be userBalanceBefore + pnl + margin - fee
         assertEq(user.balance, userBalanceBefore + uint256(pnl) + ethLong.margin - fee, '!userBalance');
@@ -162,10 +162,10 @@ contract PoolTest is Setup {
         vm.startPrank(user);
 
         // submit two orders with SL and TP
-        uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee
+        uint256 value = ethLong.margin + (ethLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
         orders.submitOrder{value: value}(ethLong, ETH_TP_PRICE * UNIT, ETH_SL_PRICE * UNIT);
 
-        value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER;
+        value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
         orders.submitOrder{value: value}(btcLong, BTC_TP_PRICE * UNIT, BTC_SL_PRICE * UNIT);
 
         vm.stopPrank();

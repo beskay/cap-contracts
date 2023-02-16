@@ -414,7 +414,7 @@ contract Setup is Constants {
                 maxLeverage: 50,
                 maxDeviation: 500,
                 chainlinkFeed: linkETH,
-                fee: 10, // 0.1%
+                fee: MARKET_FEE, // 0.1%
                 liqThreshold: 10000,
                 fundingFactor: 10000,
                 minOrderAge: 1,
@@ -431,7 +431,7 @@ contract Setup is Constants {
                 category: 'crypto',
                 maxLeverage: 50,
                 maxDeviation: 500,
-                fee: 10,
+                fee: MARKET_FEE,
                 chainlinkFeed: linkBTC,
                 liqThreshold: 10000,
                 fundingFactor: 10000,
