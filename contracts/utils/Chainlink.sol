@@ -9,6 +9,7 @@ contract Chainlink {
     // -- Constants -- //
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant GRACE_PERIOD_TIME = 3600;
+    uint256 public constant RATE_STALE_PERIOD = 86400;
 
     // -- Variables -- //
     AggregatorV3Interface internal sequencerUptimeFeed;
@@ -16,6 +17,7 @@ contract Chainlink {
     // -- Errors -- //
     error SequencerDown();
     error GracePeriodNotOver();
+    error StaleRate();
 
     /**
      * For a list of available sequencer proxy addresses, see:
@@ -32,8 +34,14 @@ contract Chainlink {
     function getPrice(address feed) public view returns (uint256) {
         if (feed == address(0)) return 0;
 
-        (, /*uint80 roundId*/ int256 answer, uint256 startedAt, , ) = /*uint256 updatedAt*/ /*uint80 answeredInRound*/
-        sequencerUptimeFeed.latestRoundData();
+        // prettier-ignore
+        (
+            /*uint80 roundID*/,
+            int256 answer,
+            uint256 startedAt,
+            /*uint256 updatedAt*/,
+            /*uint80 answeredInRound*/
+        ) = sequencerUptimeFeed.latestRoundData();
 
         // Answer == 0: Sequencer is up
         // Answer == 1: Sequencer is down
@@ -50,8 +58,19 @@ contract Chainlink {
         }
 
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feed);
-        (, /*uint80 roundID*/ int price, , , ) = /*uint startedAt*/ /*uint timeStamp*/ /*uint80 answeredInRound*/
-        priceFeed.latestRoundData();
+
+        // prettier-ignore
+        (
+            /*uint80 roundID*/, 
+            int price, 
+            /*uint startedAt*/,
+            uint256 updatedAt, 
+            /*uint80 answeredInRound*/
+        ) = priceFeed.latestRoundData();
+
+        if (updatedAt < block.timestamp - RATE_STALE_PERIOD) {
+            revert StaleRate();
+        }
 
         uint8 decimals = priceFeed.decimals();
 

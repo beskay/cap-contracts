@@ -13,8 +13,13 @@ contract Constants is Test {
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
     uint256 public constant USDC_DECIMALS = 10 ** 6;
+
     uint256 public constant INITIAL_ETH_BALANCE = 10 ether;
     uint256 public constant INITIAL_USDC_BALANCE = 100_000 * USDC_DECIMALS;
+    uint256 public constant INITIAL_CAP_BALANCE = 1000 * UNIT;
+
+    uint256 public constant PYTH_FEE = 1000; // 1000 wei
+    uint256 public constant MARKET_FEE = 10; // in bps
 
     // Prices for test orders
     uint256 public constant ETH_PRICE = 1000;
@@ -37,6 +42,7 @@ contract Constants is Test {
 
     // Test addresses
     address public treasury = makeAddr('Treasury');
-    address public user = address(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC);
-    address public user2 = address(0x90F79bf6EB2c4f870365E785982E1f101E93b906);
+    address public user = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266); // first anvil test address
+    address public user2 = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8); // second anvil test address
+    address public user3 = address(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC); // third anvil test address
 }

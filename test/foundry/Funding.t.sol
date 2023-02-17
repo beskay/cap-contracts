@@ -10,115 +10,110 @@ contract FundingTest is Setup {
 
     function testFundingTrackerLong() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        _submitAndExecuteOrder(user, 10 ether, btcLong, priceFeedDataBTC);
 
-        // open long interest should be == order.size
+        // open long interest should be 10 ether
         assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 10 ether);
-
         // fundingStore.getLastUpdated should be block.timestamp
         assertEq(fundingStore.getLastUpdated(address(0), 'BTC-USD'), block.timestamp);
 
         // fast forward 1 day
+        uint256 newTimestamp = block.timestamp + 1 days;
         skip(1 days);
 
+        // get new pricefeed data to prevent stale orders
+        priceFeedDataBTC = pyth.createPriceFeedUpdateData(
+            pythBTC, // price feed ID
+            int64(uint64(BTC_PRICE * 10 ** 8)), // price
+            uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
+            int32(-8), // exponent
+            int64(uint64(BTC_PRICE * 10 ** 8)), // ema price
+            uint64(10 ** 8), // confidence interval
+            // we have to use newTimestamp here, because the compiler causes issues
+            // see also https://github.com/foundry-rs/foundry/issues/1373
+            uint64(newTimestamp) // publishTime
+        );
+
         // user2 submits btc long
-        _submitAndExecuteLong(user2, 5 ether);
+        _submitAndExecuteOrder(user2, 5 ether, btcLong, priceFeedDataBTC);
 
-        // open long interest should be == 10 ether + 5 ether
+        // open long interest should be 15 ether
         assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 15 ether);
-
         // funding tracker should be greater than zero
-        assertGt(fundingStore.getFundingTracker(address(0), 'BTC-USD'), 0);
+        int256 fundingTracker = fundingStore.getFundingTracker(address(0), 'BTC-USD');
+        assertGt(fundingTracker, 0);
     }
 
     function testFundingTrackerShort() public {
         // execute btc short order
-        _submitAndExecuteShort(user, 10 ether);
+        _submitAndExecuteOrder(user, 10 ether, btcShort, priceFeedDataBTC);
 
-        // open long interest should be == order.size
+        // open short interest should be 10 ether
         assertEq(positionStore.getOIShort(address(0), 'BTC-USD'), 10 ether);
-
         // fundingStore.getLastUpdated should be block.timestamp
         assertEq(fundingStore.getLastUpdated(address(0), 'BTC-USD'), block.timestamp);
 
         // fast forward 1 day
+        uint256 newTimestamp = block.timestamp + 1 days;
         skip(1 days);
 
-        // user2 submits btc long
-        _submitAndExecuteShort(user2, 5 ether);
+        // get new pricefeed data to prevent stale orders
+        priceFeedDataBTC = pyth.createPriceFeedUpdateData(
+            pythBTC, // price feed ID
+            int64(uint64(BTC_PRICE * 10 ** 8)), // price
+            uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
+            int32(-8), // exponent
+            int64(uint64(BTC_PRICE * 10 ** 8)), // ema price
+            uint64(10 ** 8), // confidence interval
+            // we have to use newTimestamp here, because the compiler causes issues
+            // see also https://github.com/foundry-rs/foundry/issues/1373
+            uint64(newTimestamp) // publishTime
+        );
 
-        // open long interest should be == 10 ether + 5 ether
+        // user2 submits btc short
+        _submitAndExecuteOrder(user2, 5 ether, btcShort, priceFeedDataBTC);
+
+        // open short interest should be 15 ether
         assertEq(positionStore.getOIShort(address(0), 'BTC-USD'), 15 ether);
-
         // funding tracker should be less than zero
-        assertLt(fundingStore.getFundingTracker(address(0), 'BTC-USD'), 0);
+        int256 fundingTracker = fundingStore.getFundingTracker(address(0), 'BTC-USD');
+        assertLt(fundingTracker, 0);
     }
 
-    // utils
-    function _submitAndExecuteLong(address _user, uint256 _size) internal {
-        // user submits BTC long order
-        btcLong.size = _size;
-        uint256 value = btcLong.margin + (btcLong.size * 10) / BPS_DIVIDER; // margin + fee
-        vm.prank(_user);
-        orders.submitOrder{value: value}(btcLong, 0, 0);
+    function testFundingTrackerAssetUSDC() public {
+        // execute eth long order, base asset is USDC
+        _submitAndExecuteOrder(user, 10000 * USDC_DECIMALS, ethLongAssetUSDC, priceFeedDataETH);
 
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
+        // open long interest should be 10k USDC
+        assertEq(positionStore.getOILong(address(usdc), 'ETH-USD'), 10000 * USDC_DECIMALS);
+        // fundingStore.getLastUpdated should be block.timestamp
+        assertEq(fundingStore.getLastUpdated(address(usdc), 'ETH-USD'), block.timestamp);
 
-        // get new pricefeed data to prevent stale orders
-        priceFeedDataBTC = pyth.createPriceFeedUpdateData(
-            pythBTC, // price feed ID
-            int64(uint64(BTC_PRICE * 10 ** 8)), // price
-            uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
-            int32(-8), // exponent
-            int64(uint64(BTC_PRICE * 10 ** 8)), // ema price
-            uint64(10 ** 8), // confidence interval
-            uint64(block.timestamp) // publishTime
-        );
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // execute order
-        processor.executeOrders(orderIds, priceFeedData);
-    }
-
-    function _submitAndExecuteShort(address _user, uint256 _size) internal {
-        // user submits BTC short order
-        btcShort.size = _size;
-        uint256 value = btcShort.margin + (btcShort.size * 10) / BPS_DIVIDER; // margin + fee
-        vm.prank(_user);
-        orders.submitOrder{value: value}(btcShort, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
+        // fast forward 1 day
+        uint256 newTimestamp = block.timestamp + 1 days;
+        skip(1 days);
 
         // get new pricefeed data to prevent stale orders
-        priceFeedDataBTC = pyth.createPriceFeedUpdateData(
-            pythBTC, // price feed ID
-            int64(uint64(BTC_PRICE * 10 ** 8)), // price
+        priceFeedDataETH = pyth.createPriceFeedUpdateData(
+            pythETH, // price feed ID
+            int64(uint64(ETH_PRICE * 10 ** 8)), // price
             uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
             int32(-8), // exponent
-            int64(uint64(BTC_PRICE * 10 ** 8)), // ema price
+            int64(uint64(ETH_PRICE * 10 ** 8)), // ema price
             uint64(10 ** 8), // confidence interval
-            uint64(block.timestamp) // publishTime
+            // we have to use newTimestamp here, because the compiler causes issues
+            // see also https://github.com/foundry-rs/foundry/issues/1373
+            uint64(newTimestamp) // publishTime
         );
 
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
+        // user2 submits eth long
+        _submitAndExecuteOrder(user2, 5000 * USDC_DECIMALS, ethLongAssetUSDC, priceFeedDataETH);
 
-        // execute order
-        processor.executeOrders(orderIds, priceFeedData);
+        // open long interest should be 15k USDC
+        assertEq(positionStore.getOILong(address(usdc), 'ETH-USD'), 15000 * USDC_DECIMALS);
+        // funding tracker should be greater than zero
+        int256 fundingTracker = fundingStore.getFundingTracker(address(usdc), 'ETH-USD');
+        assertGt(fundingTracker, 0);
     }
 
     // needed to receive Ether (e.g. keeper fee)

@@ -22,6 +22,40 @@ contract OrderTest is Setup {
         assertEq(address(fundStore).balance, value);
     }
 
+    function testFuzzSubmitOrder(uint256 margin, uint256 size) public {
+        // submit order with various margin and size params
+        margin = bound(margin, 0.01 ether, 5 ether);
+        size = bound(size, margin, margin * 50);
+
+        OrderStore.Order memory _order = OrderStore.Order({
+            orderId: 0,
+            user: address(0),
+            asset: address(0),
+            market: 'ETH-USD',
+            margin: margin,
+            size: size,
+            price: 0, // market order
+            fee: 0,
+            isLong: true, // long
+            orderType: 0,
+            isReduceOnly: false,
+            timestamp: 0,
+            expiry: 0,
+            cancelOrderId: 0
+        });
+
+        uint256 value = _order.margin + (_order.size * 10) / BPS_DIVIDER; // margin + fee
+
+        vm.prank(user);
+        orders.submitOrder{value: value}(_order, 0, 0);
+
+        OrderStore.Order[] memory userOrder = orderStore.getUserOrders(user);
+
+        // validate fuzz parameters
+        assertEq(userOrder[0].margin, margin);
+        assertEq(userOrder[0].size, size);
+    }
+
     function testSubmitOrderAssetUSDC() public {
         uint256 value = btcLongAssetUSDC.margin + (btcLongAssetUSDC.size * 10) / BPS_DIVIDER; // margin + fee
 
@@ -115,9 +149,12 @@ contract OrderTest is Setup {
     }
 
     function testRevertValue() public {
+        // should revert if value is less than required
+        uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee
+
         vm.prank(user);
         vm.expectRevert();
-        orders.submitOrder{value: 0}(ethLong, 0, 0);
+        orders.submitOrder{value: value - 1}(ethLong, 0, 0);
     }
 
     function testRefundMsgValueExcess() public {

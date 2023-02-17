@@ -80,6 +80,23 @@ contract Setup is Constants {
             expiry: 0,
             cancelOrderId: 0
         });
+    OrderStore.Order public ethLongAssetUSDC =
+        OrderStore.Order({
+            orderId: 0,
+            user: address(0),
+            asset: address(0), // will be set after contract deployment
+            market: 'ETH-USD',
+            margin: 1000 * USDC_DECIMALS,
+            size: 5000 * USDC_DECIMALS,
+            price: 0, // market order
+            fee: 0,
+            isLong: true, // long
+            orderType: 0,
+            isReduceOnly: false,
+            timestamp: 0,
+            expiry: 0,
+            cancelOrderId: 0
+        });
     OrderStore.Order public ethShort =
         OrderStore.Order({
             orderId: 0,
@@ -236,7 +253,7 @@ contract Setup is Constants {
 
     function setUp() public virtual {
         // fast forward to year 2023
-        skip(1672531200);
+        vm.warp(1672531200);
 
         // Mock Tokens - CAP, USDC
         cap = new MockToken('CAP', 'CAP', 18);
@@ -244,8 +261,8 @@ contract Setup is Constants {
         usdc = new MockToken('USDC', 'USDC', 6);
         //console.log('USDC token deployed to', address(usdc));
 
-        // Mock Pyth: _validTimePeriod = 10 seconds, _singleUpdateFeeInWei = 0
-        pyth = new MockPyth(10, 0);
+        // Mock Pyth: _validTimePeriod = 10 seconds, _singleUpdateFeeInWei = 1000
+        pyth = new MockPyth(10, PYTH_FEE);
         //console.log('MockPyth deployed to', address(pyth));
 
         // Mock chainlink
@@ -383,7 +400,7 @@ contract Setup is Constants {
         chainlink.setMarketPrice(linkBTC, BTC_PRICE * UNIT);
         chainlink.setMarketPrice(linkUSDC, 1 * UNIT);
 
-        // Pyth price feed data
+        // Default Pyth price feed data
         priceFeedDataETH = pyth.createPriceFeedUpdateData(
             pythETH, // price feed ID
             int64(uint64(ETH_PRICE * 10 ** 8)), // price
@@ -414,7 +431,7 @@ contract Setup is Constants {
                 maxLeverage: 50,
                 maxDeviation: 500,
                 chainlinkFeed: linkETH,
-                fee: 10, // 0.1%
+                fee: MARKET_FEE, // 0.1%
                 liqThreshold: 10000,
                 fundingFactor: 10000,
                 minOrderAge: 1,
@@ -431,7 +448,7 @@ contract Setup is Constants {
                 category: 'crypto',
                 maxLeverage: 50,
                 maxDeviation: 500,
-                fee: 10,
+                fee: MARKET_FEE,
                 chainlinkFeed: linkBTC,
                 liqThreshold: 10000,
                 fundingFactor: 10000,
@@ -449,18 +466,22 @@ contract Setup is Constants {
         poolStore.setWithdrawalFee(address(usdc), 100); // 1%
         //console.log('PoolStore set up');
 
+        // set USDC address of orders
+        btcLongAssetUSDC.asset = address(usdc);
+        ethLongAssetUSDC.asset = address(usdc);
+
         // Mint and approve some mock tokens
 
         usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
-        cap.mint(1000 * UNIT);
+        cap.mint(INITIAL_CAP_BALANCE);
         cap.approve(address(fundStore), MAX_UINT256);
 
         // To user
         vm.startPrank(user);
         usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
-        cap.mint(1000 * UNIT);
+        cap.mint(INITIAL_CAP_BALANCE);
         cap.approve(address(fundStore), MAX_UINT256);
         vm.stopPrank();
 
@@ -468,19 +489,61 @@ contract Setup is Constants {
         vm.startPrank(user2);
         usdc.mint(INITIAL_USDC_BALANCE);
         usdc.approve(address(fundStore), MAX_UINT256);
-        cap.mint(1000 * UNIT);
+        cap.mint(INITIAL_CAP_BALANCE);
+        cap.approve(address(fundStore), MAX_UINT256);
+        vm.stopPrank();
+
+        // To user3
+        vm.startPrank(user3);
+        usdc.mint(INITIAL_USDC_BALANCE);
+        usdc.approve(address(fundStore), MAX_UINT256);
+        cap.mint(INITIAL_CAP_BALANCE);
         cap.approve(address(fundStore), MAX_UINT256);
         vm.stopPrank();
 
         //console.log('Minted mock tokens.');
 
         // Fund accounts
+
         vm.deal(msg.sender, INITIAL_ETH_BALANCE);
         vm.deal(user, INITIAL_ETH_BALANCE);
         vm.deal(user2, INITIAL_ETH_BALANCE);
-        //console.log('User accounts funded.');
+        vm.deal(user3, INITIAL_ETH_BALANCE);
 
-        // set USDC address of orders
-        btcLongAssetUSDC.asset = address(usdc);
+        //console.log('User accounts funded.');
+    }
+
+    // utils
+    function _submitAndExecuteOrder(
+        address _user,
+        uint256 orderSize,
+        OrderStore.Order memory orderToSubmit,
+        bytes memory priceFeedToUse
+    ) internal {
+        // set order size
+        orderToSubmit.size = orderSize;
+
+        // value to transfer along order
+        uint256 value = orderToSubmit.margin + (orderToSubmit.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
+
+        // submit order
+        vm.prank(_user);
+        orders.submitOrder{value: value}(orderToSubmit, 0, 0);
+
+        // fast forward 2 seconds due to market.minOrderAge = 1;
+        skip(2);
+
+        // priceFeedData and order array
+        bytes[] memory priceFeedData = new bytes[](1);
+        priceFeedData[0] = priceFeedToUse;
+        uint256[] memory orderIds = new uint256[](1);
+        // get order id
+        uint256 oid = orderStore.oid();
+        orderIds[0] = oid;
+
+        // execute order
+        // keeper is user3, to test fees in {testCreditFees}
+        vm.prank(user3);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 }
