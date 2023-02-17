@@ -115,9 +115,12 @@ contract OrderTest is Setup {
     }
 
     function testRevertValue() public {
+        // should revert if value is less than required
+        uint256 value = ethLong.margin + (ethLong.size * 10) / BPS_DIVIDER; // margin + fee
+
         vm.prank(user);
         vm.expectRevert();
-        orders.submitOrder{value: 0}(ethLong, 0, 0);
+        orders.submitOrder{value: value - 1}(ethLong, 0, 0);
     }
 
     function testRefundMsgValueExcess() public {

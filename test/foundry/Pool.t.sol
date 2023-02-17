@@ -41,18 +41,23 @@ contract PoolTest is Setup {
         uint256 amountToSendPool = ((absPnl + absPnl2) * 1 days) / poolStore.bufferPayoutPeriod();
 
         assertEq(poolStore.getBufferBalance(address(0)), (absPnl + absPnl2) - amountToSendPool, '!bufferBalance');
-        assertGt(poolStore.getBalance(address(0)), amountToSendPool, '!poolBalance'); // assertGt due to pool fees
+        // assertGt is used due to pool fees
+        assertGt(poolStore.getBalance(address(0)), amountToSendPool, '!poolBalance');
     }
 
     function testDebitTraderProfit() public {
         // submit and execute orders
         _submitAndExecuteOrders();
 
-        // add pool liquidity
-        pool.deposit{value: 5 ether}(address(0), 1);
+        // add pool liquidity and increment buffer balance
+        uint256 poolDeposit = 5 ether;
+        uint256 bufferDeposit = 0.3 ether;
+
+        pool.deposit{value: poolDeposit}(address(0), 1);
+
         // prank pool contract to increment buffer balance
         vm.prank(address(pool));
-        poolStore.incrementBufferBalance(address(0), 0.3 ether);
+        poolStore.incrementBufferBalance(address(0), bufferDeposit);
 
         // balances before
         uint256 userBalanceBefore = user.balance;
@@ -79,10 +84,16 @@ contract PoolTest is Setup {
         // execute take profit order
         processor.selfExecuteOrder(5);
 
+        // calculate trader win
+        int256 pnl2 = (int256(btcLong.size) * (int256(BTC_TP_PRICE) - int256(BTC_PRICE))) / int256(BTC_PRICE);
+
         // buffer should be empty and remaining profit should be paid out from pool
         assertEq(poolStore.getBufferBalance(address(0)), 0);
-        // pool balance should be a bit over 4.8 ether due to pool fees
-        assertApproxEqAbs(poolStore.getBalance(address(0)), 4.8 ether, 0.001 ether);
+
+        uint256 remainingProfit = uint256(pnl) + uint256(pnl2) - bufferDeposit;
+
+        // pool balance should be a bit over required value due to pool fees
+        assertApproxEqAbs(poolStore.getBalance(address(0)), poolDeposit - remainingProfit, 0.001 ether);
     }
 
     /// @param amount amount of ETH to add and remove (Fuzzer)

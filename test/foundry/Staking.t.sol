@@ -68,17 +68,15 @@ contract StakingTest is Setup {
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
         vm.prank(user);
         staking.collectReward(address(usdc));
-        // not exactly the correct value, due to rounding errors
-        // error is around 0.5% depending on total staked supply and pendingReward
-        assertApproxEqRel(usdcBalanceBefore, usdc.balanceOf(user) + (feeInUSDC * 3) / 4, 0.005e18);
+        // rounding error of around 0.2% depending on total staked supply and pendingReward
+        assertApproxEqRel(usdc.balanceOf(user) - usdcBalanceBefore, (feeInUSDC * 3) / 4, 0.003e18);
 
         // user2
         usdcBalanceBefore = usdc.balanceOf(user2);
         vm.prank(user2);
         staking.collectReward(address(usdc));
-        // not exactly the correct value, due to rounding errors
-        // error is around 0.5% depending on total staked supply and pendingReward
-        assertApproxEqRel(usdcBalanceBefore, usdc.balanceOf(user2) + feeInUSDC / 4, 0.005e18);
+        // rounding error of around 0.2% depending on total staked supply and pendingReward
+        assertApproxEqRel(usdc.balanceOf(user2) - usdcBalanceBefore, feeInUSDC / 4, 0.003e18);
 
         // user3 should receive nothing
         usdcBalanceBefore = usdc.balanceOf(user3);
@@ -117,23 +115,56 @@ contract StakingTest is Setup {
         vm.expectEmit(true, true, true, true);
         emit CollectedReward(user, address(0), (feeInETH * 3) / 4);
         staking.collectMultiple(assets);
-        assertApproxEqRel(usdcBalanceBefore, usdc.balanceOf(user) + (feeInUSDC * 3) / 4, 0.005e18);
+        // rounding error of around 0.2% depending on total staked supply and pendingReward
+        assertApproxEqRel(usdc.balanceOf(user) - usdcBalanceBefore, (feeInUSDC * 3) / 4, 0.003e18);
 
         // user 2
         usdcBalanceBefore = usdc.balanceOf(user2);
         vm.prank(user2);
         vm.expectEmit(true, true, true, true);
         emit CollectedReward(user2, address(0), feeInETH / 4);
-        staking.collectReward(address(0));
-        assertApproxEqRel(usdcBalanceBefore, usdc.balanceOf(user2) + feeInUSDC / 4, 0.005e18);
+        staking.collectMultiple(assets);
+        // rounding error of around 0.2% depending on total staked supply and pendingReward
+        assertApproxEqRel(usdc.balanceOf(user2) - usdcBalanceBefore, feeInUSDC / 4, 0.003e18);
 
         // user 3
         uint256 ethBalanceBefore = user3.balance;
         usdcBalanceBefore = usdc.balanceOf(user3);
         vm.prank(user3);
-        staking.collectReward(address(0));
+        staking.collectMultiple(assets);
         assertEq(ethBalanceBefore, user3.balance);
         assertEq(usdcBalanceBefore, usdc.balanceOf(user3));
+    }
+
+    function testNonWithdrawableFunds() public {
+        // user stakes 1000 CAP
+        vm.prank(user);
+        staking.stake(1000 * UNIT);
+
+        // user2 submits order, incurring fees which are distributed to user
+        uint256 feeInETH = _submitAndExecuteOrder(user2, 10 ether);
+        uint256 feeInUSDC = _submitAndExecuteOrderAssetUSDC(user2, 5000 * USDC_DECIMALS);
+
+        // asset array
+        address[] memory assets = new address[](2);
+        assets[0] = address(0);
+        assets[1] = address(usdc);
+
+        // user claims staking rewards
+        vm.prank(user);
+        staking.collectMultiple(assets);
+
+        // due to rounding errors a fraction of funds are left in the contract
+        // leftover funds should be assigned to pendingReward, ready to be distributed later
+        uint256 paidFeeInETH = user.balance - INITIAL_ETH_BALANCE;
+        uint256 paidFeeInUSDC = usdc.balanceOf(user) - INITIAL_USDC_BALANCE;
+
+        uint256 roundingErrorETH = feeInETH - paidFeeInETH;
+        uint256 roundingErrorUSDC = feeInUSDC - paidFeeInUSDC;
+
+        // assert correct pending reward
+        assertEq(stakingStore.getPendingReward(address(0)), roundingErrorETH);
+        assertEq(stakingStore.getPendingReward(address(usdc)), roundingErrorUSDC);
     }
 
     function testFuzzStakeAndUnstake(uint256 amount) public {

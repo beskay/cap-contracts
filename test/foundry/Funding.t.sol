@@ -12,7 +12,7 @@ contract FundingTest is Setup {
         // execute btc long order
         _submitAndExecuteLong(user, 10 ether);
 
-        // open long interest should be == order.size
+        // open long interest should be 10 ether
         assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 10 ether);
 
         // fundingStore.getLastUpdated should be block.timestamp
@@ -24,18 +24,19 @@ contract FundingTest is Setup {
         // user2 submits btc long
         _submitAndExecuteLong(user2, 5 ether);
 
-        // open long interest should be == 10 ether + 5 ether
+        // open long interest should be 15 ether
         assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 15 ether);
 
         // funding tracker should be greater than zero
-        assertGt(fundingStore.getFundingTracker(address(0), 'BTC-USD'), 0);
+        int256 fundingTracker = fundingStore.getFundingTracker(address(0), 'BTC-USD');
+        assertGt(fundingTracker, 0);
     }
 
     function testFundingTrackerShort() public {
         // execute btc short order
         _submitAndExecuteShort(user, 10 ether);
 
-        // open long interest should be == order.size
+        // open short interest should be 10 ether
         assertEq(positionStore.getOIShort(address(0), 'BTC-USD'), 10 ether);
 
         // fundingStore.getLastUpdated should be block.timestamp
@@ -44,14 +45,39 @@ contract FundingTest is Setup {
         // fast forward 1 day
         skip(1 days);
 
-        // user2 submits btc long
+        // user2 submits btc short
         _submitAndExecuteShort(user2, 5 ether);
 
-        // open long interest should be == 10 ether + 5 ether
+        // open short interest should be 15 ether
         assertEq(positionStore.getOIShort(address(0), 'BTC-USD'), 15 ether);
 
         // funding tracker should be less than zero
-        assertLt(fundingStore.getFundingTracker(address(0), 'BTC-USD'), 0);
+        int256 fundingTracker = fundingStore.getFundingTracker(address(0), 'BTC-USD');
+        assertLt(fundingTracker, 0);
+    }
+
+    function testFundingTrackerAssetUSDC() public {
+        // execute eth long order, base asset is USDC
+        _submitAndExecuteLongAssetUSDC(user, 10000 * USDC_DECIMALS);
+
+        // open long interest should be 10k USDC
+        assertEq(positionStore.getOILong(address(usdc), 'ETH-USD'), 10000 * USDC_DECIMALS);
+
+        // fundingStore.getLastUpdated should be block.timestamp
+        assertEq(fundingStore.getLastUpdated(address(usdc), 'ETH-USD'), block.timestamp);
+
+        // fast forward 1 day
+        skip(1 days);
+
+        // user2 submits eth long
+        _submitAndExecuteLongAssetUSDC(user2, 5000 * USDC_DECIMALS);
+
+        // open long interest should be 15k USDC
+        assertEq(positionStore.getOILong(address(usdc), 'ETH-USD'), 15000 * USDC_DECIMALS);
+
+        // funding tracker should be greater than zero
+        int256 fundingTracker = fundingStore.getFundingTracker(address(usdc), 'ETH-USD');
+        assertGt(fundingTracker, 0);
     }
 
     // utils
@@ -79,6 +105,39 @@ contract FundingTest is Setup {
         // priceFeedData and order array
         bytes[] memory priceFeedData = new bytes[](1);
         priceFeedData[0] = priceFeedDataBTC;
+        uint256[] memory orderIds = new uint256[](1);
+        // get order id
+        uint256 oid = orderStore.oid();
+        orderIds[0] = oid;
+
+        // execute order
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
+    }
+
+    function _submitAndExecuteLongAssetUSDC(address _user, uint256 _size) internal {
+        // user submits ETH long order
+        ethLongAssetUSDC.size = _size;
+        uint256 value = ethLongAssetUSDC.margin + (ethLongAssetUSDC.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
+        vm.prank(_user);
+        orders.submitOrder(ethLongAssetUSDC, 0, 0);
+
+        // fast forward 2 seconds due to market.minOrderAge = 1;
+        skip(2);
+
+        // get new pricefeed data to prevent stale orders
+        priceFeedDataETH = pyth.createPriceFeedUpdateData(
+            pythETH, // price feed ID
+            int64(uint64(ETH_PRICE * 10 ** 8)), // price
+            uint64(10 ** 8), // confidence interval (10^8 * 10^(expo) = 1)
+            int32(-8), // exponent
+            int64(uint64(ETH_PRICE * 10 ** 8)), // ema price
+            uint64(10 ** 8), // confidence interval
+            uint64(block.timestamp) // publishTime
+        );
+
+        // priceFeedData and order array
+        bytes[] memory priceFeedData = new bytes[](1);
+        priceFeedData[0] = priceFeedDataETH;
         uint256[] memory orderIds = new uint256[](1);
         // get order id
         uint256 oid = orderStore.oid();
