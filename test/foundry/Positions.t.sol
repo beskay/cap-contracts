@@ -10,7 +10,7 @@ contract PositionsTest is Setup {
 
     function testIncreasePosition() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        _submitAndExecuteOrder(user, 10 ether, btcLong, priceFeedDataBTC);
 
         // open long interest should be == order.size
         assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 10 ether, '!oiLong');
@@ -25,17 +25,18 @@ contract PositionsTest is Setup {
 
     function testDecreasePosition() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // open long interest should be == order.size
         assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 10 ether, '!oiLong');
 
         uint256 userBalanceBefore = user.balance;
         // close half of open long position
-        _submitAndExecuteShort(user, 5 ether);
+        _submitAndExecuteOrder(user, orderSize / 2, btcShort, priceFeedDataBTC);
 
         // half of margin should be transferred back to user (minus fee of short order)
-        uint256 shortOrderFee = (btcShort.size * MARKET_FEE) / BPS_DIVIDER;
+        uint256 shortOrderFee = ((orderSize / 2) * MARKET_FEE) / BPS_DIVIDER;
         assertEq(user.balance, userBalanceBefore + btcLong.margin / 2 - shortOrderFee);
 
         // open long interest should be half of initial interest
@@ -43,12 +44,12 @@ contract PositionsTest is Setup {
 
         // Size of long position should be half of initial size
         PositionStore.Position[] memory userPos = positionStore.getUserPositions(user);
-        assertEq(userPos[0].size, 5 ether);
+        assertEq(userPos[0].size, orderSize / 2);
 
         // submit short with size > existing position size
         // long position should be closed completely
         // and short position with size == 5 ether should be opened
-        _submitAndExecuteShort(user, 10 ether);
+        _submitAndExecuteOrder(user, orderSize, btcShort, priceFeedDataBTC);
 
         userPos = positionStore.getUserPositions(user);
 
@@ -65,17 +66,19 @@ contract PositionsTest is Setup {
 
     function testDecreasePositionReduceOnly() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // open long interest should be == order.size
-        assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 10 ether, '!oiLong');
+        assertEq(positionStore.getOILong(address(0), 'BTC-USD'), orderSize, '!oiLong');
 
         uint256 userBalanceBefore = user.balance;
+
         // close open long position
-        _submitAndExecuteReduceOnly(user, 10 ether);
+        _submitAndExecuteOrder(user, orderSize, reduceOnly, priceFeedDataBTC);
 
         // margin should be transferred back to user (minus fee of reduce only order)
-        uint256 reduceOnlyFee = (reduceOnly.size * MARKET_FEE) / BPS_DIVIDER;
+        uint256 reduceOnlyFee = (orderSize * MARKET_FEE) / BPS_DIVIDER;
         assertEq(user.balance, userBalanceBefore + btcLong.margin - reduceOnlyFee);
 
         // open long interest should be zero
@@ -88,10 +91,11 @@ contract PositionsTest is Setup {
 
     function testClosePositionWithoutProfit() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // open long interest should be == order.size
-        assertEq(positionStore.getOILong(address(0), 'BTC-USD'), 10 ether, '!oiLong');
+        assertEq(positionStore.getOILong(address(0), 'BTC-USD'), orderSize, '!oiLong');
 
         uint256 userBalanceBefore = user.balance;
 
@@ -99,13 +103,13 @@ contract PositionsTest is Setup {
         positions.closePositionWithoutProfit(address(0), 'BTC-USD');
 
         // margin should be transferred back to user
-        uint256 fee = (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
         assertEq(user.balance, userBalanceBefore + btcLong.margin);
     }
 
     function testRevertClosePositionWithoutProfit() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // decrease BTC price so pnl of position is < 0
         chainlink.setMarketPrice(linkBTC, BTC_PRICE + 1000 * UNIT);
@@ -117,7 +121,8 @@ contract PositionsTest is Setup {
 
     function testAddMargin() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         uint256 userBalanceBefore = user.balance;
         uint256 fundStoreBalanceBefore = address(fundStore).balance;
@@ -135,7 +140,8 @@ contract PositionsTest is Setup {
 
     function testAddMarginUSDC() public {
         // execute btc long order
-        _submitAndExecuteLongAssetUSDC(user, 5000 * USDC_DECIMALS);
+        uint256 orderSize = 5000 * USDC_DECIMALS;
+        _submitAndExecuteOrder(user, orderSize, btcLongAssetUSDC, priceFeedDataBTC);
 
         uint256 userBalanceBefore = usdc.balanceOf(user);
         uint256 fundStoreBalanceBefore = usdc.balanceOf(address(fundStore));
@@ -153,12 +159,13 @@ contract PositionsTest is Setup {
 
     function testRevertAddMargin() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 5 ether);
+        uint256 orderSize = 5 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // revert due to min leverage
         vm.prank(user);
         vm.expectRevert('!min-leverage');
-        positions.addMargin{value: btcLong.size}(address(0), 'BTC-USD', 0.1 ether);
+        positions.addMargin{value: orderSize}(address(0), 'BTC-USD', 0.1 ether);
 
         // revert due to margin == 0
         vm.prank(user);
@@ -168,7 +175,8 @@ contract PositionsTest is Setup {
 
     function testRemoveMargin() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // margin of btc long order is 1 eth
 
@@ -187,7 +195,8 @@ contract PositionsTest is Setup {
 
     function testRevertRemoveMargin() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // should revert when trying to remove more than existing margin
         vm.prank(user);
@@ -212,10 +221,11 @@ contract PositionsTest is Setup {
 
     function testCreditFee() public {
         // execute btc long order
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // calculate fees
-        uint256 fee = (btcLong.size * MARKET_FEE) / BPS_DIVIDER;
+        uint256 fee = (orderSize * MARKET_FEE) / BPS_DIVIDER;
         uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
 
         uint256 netFee = fee - keeperFee;
@@ -228,15 +238,16 @@ contract PositionsTest is Setup {
         assertEq(poolStore.getBalance(address(0)), feeToPool, '!feeToPool');
         assertEq(stakingStore.getPendingReward(address(0)), feeToStaking, '!feeToStaking');
         assertEq(treasury.balance, feeToTreasury, '!feeToTreasury');
-        assertEq(user2.balance, INITIAL_ETH_BALANCE + keeperFee - PYTH_FEE, '!keeperFee');
+        assertEq(user3.balance, INITIAL_ETH_BALANCE + keeperFee - PYTH_FEE, '!keeperFee');
     }
 
     function testCreditFeeAssetUSDC() public {
         // execute btc long order
-        _submitAndExecuteLongAssetUSDC(user, 5000 * USDC_DECIMALS);
+        uint256 orderSize = 5000 * USDC_DECIMALS;
+        _submitAndExecuteOrder(user, orderSize, btcLongAssetUSDC, priceFeedDataBTC);
 
         // calculate fees
-        uint256 fee = (btcLongAssetUSDC.size * MARKET_FEE) / BPS_DIVIDER;
+        uint256 fee = (orderSize * MARKET_FEE) / BPS_DIVIDER;
         uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
 
         uint256 netFee = fee - keeperFee;
@@ -249,97 +260,7 @@ contract PositionsTest is Setup {
         assertEq(poolStore.getBalance(address(usdc)), feeToPool, '!feeToPool');
         assertEq(stakingStore.getPendingReward(address(usdc)), feeToStaking, '!feeToStaking');
         assertEq(usdc.balanceOf(treasury), feeToTreasury, '!feeToTreasury');
-        assertEq(usdc.balanceOf(user2), INITIAL_USDC_BALANCE + keeperFee, '!keeperFee');
-    }
-
-    // utils
-    function _submitAndExecuteLong(address _user, uint256 _size) internal {
-        // user submits BTC long order
-        btcLong.size = _size;
-        uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
-        vm.prank(_user);
-        orders.submitOrder{value: value}(btcLong, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // set keeper to user2, to test fees in {testCreditFees}
-        vm.prank(user2);
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
-    }
-
-    function _submitAndExecuteLongAssetUSDC(address _user, uint256 _size) internal {
-        // user submits BTC long order
-        btcLongAssetUSDC.size = _size;
-        uint256 value = btcLongAssetUSDC.margin + (btcLongAssetUSDC.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
-        vm.prank(_user);
-        orders.submitOrder(btcLongAssetUSDC, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // set keeper to user2, to test fees in {testCreditFeesUSDC}
-        vm.prank(user2);
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
-    }
-
-    function _submitAndExecuteShort(address _user, uint256 _size) internal {
-        // user submits BTC short order
-        btcShort.size = _size;
-        uint256 value = btcShort.margin + (btcShort.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
-        vm.prank(_user);
-        orders.submitOrder{value: value}(btcShort, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // execute order
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
-    }
-
-    function _submitAndExecuteReduceOnly(address _user, uint256 _size) internal {
-        // user submits BTC short order
-        reduceOnly.size = _size;
-        vm.prank(_user);
-        orders.submitOrder(reduceOnly, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // execute order
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
+        assertEq(usdc.balanceOf(user3), INITIAL_USDC_BALANCE + keeperFee, '!keeperFee');
     }
 
     // needed to receive Ether (e.g. keeper fee)

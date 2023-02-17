@@ -23,7 +23,14 @@ contract StakingTest is Setup {
         staking.stake(250 * UNIT);
 
         // user3 submits order, incurring a fee which is distributed to stakers
-        uint256 feeInETH = _submitAndExecuteOrder(user3, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user3, orderSize, btcLong, priceFeedDataBTC);
+
+        // calculate staking fee
+        uint256 fee = (orderSize * MARKET_FEE) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+        uint256 netFee = fee - keeperFee;
+        uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
 
         // user3 stakes after orders are executed
         vm.prank(user3);
@@ -32,12 +39,12 @@ contract StakingTest is Setup {
         // user and user2 should receive staking rewards, user3 should receive nothing
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit CollectedReward(user, address(0), (feeInETH * 3) / 4);
+        emit CollectedReward(user, address(0), (feeToStaking * 3) / 4);
         staking.collectReward(address(0));
 
         vm.prank(user2);
         vm.expectEmit(true, true, true, true);
-        emit CollectedReward(user2, address(0), feeInETH / 4);
+        emit CollectedReward(user2, address(0), feeToStaking / 4);
         staking.collectReward(address(0));
 
         uint256 balanceBefore = user3.balance;
@@ -56,7 +63,14 @@ contract StakingTest is Setup {
         staking.stake(250 * UNIT);
 
         // user3 submits order, incurring a fee which is distributed to stakers
-        uint256 feeInUSDC = _submitAndExecuteOrderAssetUSDC(user3, 5000 * USDC_DECIMALS);
+        uint256 orderSize = 5000 * USDC_DECIMALS;
+        _submitAndExecuteOrder(user3, orderSize, btcLongAssetUSDC, priceFeedDataBTC);
+
+        // calculate staking fee
+        uint256 fee = (orderSize * MARKET_FEE) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+        uint256 netFee = fee - keeperFee;
+        uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
 
         // user3 stakes after orders are executed
         vm.prank(user3);
@@ -69,14 +83,14 @@ contract StakingTest is Setup {
         vm.prank(user);
         staking.collectReward(address(usdc));
         // rounding error of around 0.2% depending on total staked supply and pendingReward
-        assertApproxEqRel(usdc.balanceOf(user) - usdcBalanceBefore, (feeInUSDC * 3) / 4, 0.003e18);
+        assertApproxEqRel(usdc.balanceOf(user) - usdcBalanceBefore, (feeToStaking * 3) / 4, 0.003e18);
 
         // user2
         usdcBalanceBefore = usdc.balanceOf(user2);
         vm.prank(user2);
         staking.collectReward(address(usdc));
         // rounding error of around 0.2% depending on total staked supply and pendingReward
-        assertApproxEqRel(usdc.balanceOf(user2) - usdcBalanceBefore, feeInUSDC / 4, 0.003e18);
+        assertApproxEqRel(usdc.balanceOf(user2) - usdcBalanceBefore, feeToStaking / 4, 0.003e18);
 
         // user3 should receive nothing
         usdcBalanceBefore = usdc.balanceOf(user3);
@@ -94,9 +108,23 @@ contract StakingTest is Setup {
         vm.prank(user2);
         staking.stake(250 * UNIT);
 
-        // user3 submits order, incurring fees which are distributed to stakers
-        uint256 feeInETH = _submitAndExecuteOrder(user3, 10 ether);
-        uint256 feeInUSDC = _submitAndExecuteOrderAssetUSDC(user3, 5000 * USDC_DECIMALS);
+        // user3 submits orders, incurring fees which are distributed to stakers
+        uint256 orderSizeETH = 10 ether;
+        _submitAndExecuteOrder(user3, orderSizeETH, btcLong, priceFeedDataBTC);
+
+        uint256 orderSizeUSDC = 5000 * USDC_DECIMALS;
+        _submitAndExecuteOrder(user3, orderSizeUSDC, btcLongAssetUSDC, priceFeedDataBTC);
+
+        // calculate staking fees
+        uint256 fee = (orderSizeETH * MARKET_FEE) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+        uint256 netFee = fee - keeperFee;
+        uint256 feeToStakinginETH = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
+
+        fee = (orderSizeUSDC * MARKET_FEE) / BPS_DIVIDER;
+        keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+        netFee = fee - keeperFee;
+        uint256 feeToStakinginUSDC = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
 
         // user3 stakes after orders are executed
         vm.prank(user3);
@@ -113,19 +141,19 @@ contract StakingTest is Setup {
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit CollectedReward(user, address(0), (feeInETH * 3) / 4);
+        emit CollectedReward(user, address(0), (feeToStakinginETH * 3) / 4);
         staking.collectMultiple(assets);
         // rounding error of around 0.2% depending on total staked supply and pendingReward
-        assertApproxEqRel(usdc.balanceOf(user) - usdcBalanceBefore, (feeInUSDC * 3) / 4, 0.003e18);
+        assertApproxEqRel(usdc.balanceOf(user) - usdcBalanceBefore, (feeToStakinginUSDC * 3) / 4, 0.003e18);
 
         // user 2
         usdcBalanceBefore = usdc.balanceOf(user2);
         vm.prank(user2);
         vm.expectEmit(true, true, true, true);
-        emit CollectedReward(user2, address(0), feeInETH / 4);
+        emit CollectedReward(user2, address(0), feeToStakinginETH / 4);
         staking.collectMultiple(assets);
         // rounding error of around 0.2% depending on total staked supply and pendingReward
-        assertApproxEqRel(usdc.balanceOf(user2) - usdcBalanceBefore, feeInUSDC / 4, 0.003e18);
+        assertApproxEqRel(usdc.balanceOf(user2) - usdcBalanceBefore, feeToStakinginUSDC / 4, 0.003e18);
 
         // user 3
         uint256 ethBalanceBefore = user3.balance;
@@ -141,9 +169,23 @@ contract StakingTest is Setup {
         vm.prank(user);
         staking.stake(1000 * UNIT);
 
-        // user2 submits order, incurring fees which are distributed to user
-        uint256 feeInETH = _submitAndExecuteOrder(user2, 10 ether);
-        uint256 feeInUSDC = _submitAndExecuteOrderAssetUSDC(user2, 5000 * USDC_DECIMALS);
+        // user3 submits orders, incurring fees which are distributed to stakers
+        uint256 orderSizeETH = 10 ether;
+        _submitAndExecuteOrder(user3, orderSizeETH, btcLong, priceFeedDataBTC);
+
+        uint256 orderSizeUSDC = 5000 * USDC_DECIMALS;
+        _submitAndExecuteOrder(user3, orderSizeUSDC, btcLongAssetUSDC, priceFeedDataBTC);
+
+        // calculate staking fees
+        uint256 fee = (orderSizeETH * MARKET_FEE) / BPS_DIVIDER;
+        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+        uint256 netFee = fee - keeperFee;
+        uint256 feeToStakinginETH = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
+
+        fee = (orderSizeUSDC * MARKET_FEE) / BPS_DIVIDER;
+        keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
+        netFee = fee - keeperFee;
+        uint256 feeToStakinginUSDC = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
 
         // asset array
         address[] memory assets = new address[](2);
@@ -159,8 +201,8 @@ contract StakingTest is Setup {
         uint256 paidFeeInETH = user.balance - INITIAL_ETH_BALANCE;
         uint256 paidFeeInUSDC = usdc.balanceOf(user) - INITIAL_USDC_BALANCE;
 
-        uint256 roundingErrorETH = feeInETH - paidFeeInETH;
-        uint256 roundingErrorUSDC = feeInUSDC - paidFeeInUSDC;
+        uint256 roundingErrorETH = feeToStakinginETH - paidFeeInETH;
+        uint256 roundingErrorUSDC = feeToStakinginUSDC - paidFeeInUSDC;
 
         // assert correct pending reward
         assertEq(stakingStore.getPendingReward(address(0)), roundingErrorETH);
@@ -192,65 +234,6 @@ contract StakingTest is Setup {
         assertEq(stakingStore.getBalance(user), 0);
         assertEq(cap.balanceOf(address(fundStore)), 0);
         assertEq(cap.balanceOf(user), INITIAL_CAP_BALANCE);
-    }
-
-    // utils
-    function _submitAndExecuteOrder(address _user, uint256 _size) internal returns (uint256) {
-        btcLong.size = _size;
-        uint256 fee = (_size * MARKET_FEE) / BPS_DIVIDER;
-
-        // user submits BTC long order
-        vm.prank(_user);
-        orders.submitOrder{value: btcLong.margin + fee}(btcLong, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        orderIds[0] = orderStore.oid();
-
-        // execute order
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
-
-        // return fee being distributed to cap stakers
-        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
-        uint256 netFee = fee - keeperFee;
-        uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
-
-        return feeToStaking;
-    }
-
-    function _submitAndExecuteOrderAssetUSDC(address _user, uint256 _size) internal returns (uint256) {
-        btcLongAssetUSDC.size = _size;
-        uint256 fee = (_size * MARKET_FEE) / BPS_DIVIDER;
-
-        // user submits BTC long order
-        vm.prank(_user);
-        orders.submitOrder{value: btcLongAssetUSDC.margin + fee}(btcLongAssetUSDC, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        orderIds[0] = orderStore.oid();
-
-        // execute order
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
-
-        // return fee being distributed to cap stakers
-        uint256 keeperFee = (fee * positionStore.keeperFeeShare()) / BPS_DIVIDER;
-        uint256 netFee = fee - keeperFee;
-        uint256 feeToStaking = (netFee * stakingStore.feeShare()) / BPS_DIVIDER;
-
-        return feeToStaking;
     }
 
     // needed to receive Ether (e.g. keeper fee)

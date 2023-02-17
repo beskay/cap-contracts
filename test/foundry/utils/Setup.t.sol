@@ -253,7 +253,7 @@ contract Setup is Constants {
 
     function setUp() public virtual {
         // fast forward to year 2023
-        skip(1672531200);
+        vm.warp(1672531200);
 
         // Mock Tokens - CAP, USDC
         cap = new MockToken('CAP', 'CAP', 18);
@@ -400,7 +400,7 @@ contract Setup is Constants {
         chainlink.setMarketPrice(linkBTC, BTC_PRICE * UNIT);
         chainlink.setMarketPrice(linkUSDC, 1 * UNIT);
 
-        // Pyth price feed data
+        // Default Pyth price feed data
         priceFeedDataETH = pyth.createPriceFeedUpdateData(
             pythETH, // price feed ID
             int64(uint64(ETH_PRICE * 10 ** 8)), // price
@@ -511,5 +511,39 @@ contract Setup is Constants {
         vm.deal(user3, INITIAL_ETH_BALANCE);
 
         //console.log('User accounts funded.');
+    }
+
+    // utils
+    function _submitAndExecuteOrder(
+        address _user,
+        uint256 orderSize,
+        OrderStore.Order memory orderToSubmit,
+        bytes memory priceFeedToUse
+    ) internal {
+        // set order size
+        orderToSubmit.size = orderSize;
+
+        // value to transfer along order
+        uint256 value = orderToSubmit.margin + (orderToSubmit.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
+
+        // submit order
+        vm.prank(_user);
+        orders.submitOrder{value: value}(orderToSubmit, 0, 0);
+
+        // fast forward 2 seconds due to market.minOrderAge = 1;
+        skip(2);
+
+        // priceFeedData and order array
+        bytes[] memory priceFeedData = new bytes[](1);
+        priceFeedData[0] = priceFeedToUse;
+        uint256[] memory orderIds = new uint256[](1);
+        // get order id
+        uint256 oid = orderStore.oid();
+        orderIds[0] = oid;
+
+        // execute order
+        // keeper is user3, to test fees in {testCreditFees}
+        vm.prank(user3);
+        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 }

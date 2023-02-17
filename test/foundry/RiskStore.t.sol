@@ -18,7 +18,8 @@ contract RiskStoreTest is Setup {
 
     function testMaxPoolDrawdown() public {
         // submit btc long
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // set BTC price to 12k USD, user made 2k USD profit
         chainlink.setMarketPrice(linkBTC, 12000 * UNIT);
@@ -36,12 +37,13 @@ contract RiskStoreTest is Setup {
         // user shouldnt be able to close unrealized profit of $2k all at once
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(2, user, '!pool-risk');
-        _submitAndExecuteReduceOnly(user, btcLong.size, priceFeed);
+        _submitAndExecuteOrder(user, orderSize, reduceOnly, priceFeed);
     }
 
     function testProfitTracker() public {
         // submit btc long
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // set BTC price to 12k USD, user made 2k USD profit
         chainlink.setMarketPrice(linkBTC, 12000 * UNIT);
@@ -60,7 +62,7 @@ contract RiskStoreTest is Setup {
 
         // profitLimit is 10% of pool size, so a bit more than 1 ether (1k USD) due to pool fees
         // it should be possible to close half of the position
-        _submitAndExecuteReduceOnly(user, btcLong.size / 2, priceFeed);
+        _submitAndExecuteOrder(user, orderSize / 2, reduceOnly, priceFeed);
 
         // profit tracker should be 1 ether
         assertEq(riskStore.getPoolProfitTracker(address(0)), 1 ether);
@@ -74,7 +76,8 @@ contract RiskStoreTest is Setup {
 
     function testProfitTrackerNegative() public {
         // submit btc long
-        _submitAndExecuteLong(user, 10 ether);
+        uint256 orderSize = 10 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
         // set BTC price to 9500 USD, user made 500 USD loss
         chainlink.setMarketPrice(linkBTC, 9500 * UNIT);
@@ -92,7 +95,7 @@ contract RiskStoreTest is Setup {
         assertEq(riskStore.getPoolProfitTracker(address(0)), 0);
 
         // close losing position
-        _submitAndExecuteReduceOnly(user, btcLong.size, priceFeed);
+        _submitAndExecuteOrder(user, orderSize, reduceOnly, priceFeed);
 
         // profit tracker should be -0.5 ether
         assertEq(riskStore.getPoolProfitTracker(address(0)), -0.5 ether);
@@ -103,59 +106,17 @@ contract RiskStoreTest is Setup {
         riskStore.setMaxOI('BTC-USD', address(0), 10 ether);
 
         // this should work
-        _submitAndExecuteLong(user, 5 ether);
+        uint256 orderSize = 5 ether;
+        _submitAndExecuteOrder(user, orderSize, btcLong, priceFeedDataBTC);
 
+        // set size of btcLong order above 5 ether
         btcLong.size = 5.01 ether;
         uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
 
-        // should revert
+        // should revert since 5+5.01 > 10
         vm.prank(user2);
         vm.expectRevert('!max-oi');
         orders.submitOrder{value: value}(btcLong, 0, 0);
-    }
-
-    // utils
-    function _submitAndExecuteLong(address _user, uint256 _size) internal {
-        // user submits BTC long order
-        btcLong.size = _size;
-        uint256 value = btcLong.margin + (btcLong.size * MARKET_FEE) / BPS_DIVIDER; // margin + fee
-        vm.prank(_user);
-        orders.submitOrder{value: value}(btcLong, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = priceFeedDataBTC;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // execute order
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
-    }
-
-    function _submitAndExecuteReduceOnly(address _user, uint256 _size, bytes memory _priceFeedData) internal {
-        // user submits BTC short order
-        reduceOnly.size = _size;
-        vm.prank(_user);
-        orders.submitOrder(reduceOnly, 0, 0);
-
-        // fast forward 2 seconds due to market.minOrderAge = 1;
-        skip(2);
-
-        // priceFeedData and order array
-        bytes[] memory priceFeedData = new bytes[](1);
-        priceFeedData[0] = _priceFeedData;
-        uint256[] memory orderIds = new uint256[](1);
-        // get order id
-        uint256 oid = orderStore.oid();
-        orderIds[0] = oid;
-
-        // execute order
-        processor.executeOrders{value: PYTH_FEE}(orderIds, priceFeedData);
     }
 
     // needed to receive Ether (e.g. keeper fee)
