@@ -18,6 +18,7 @@ import '../utils/Roles.sol';
  * @notice Implementation of order related logic, i.e. submitting orders / cancelling them
  */
 contract Orders is Roles {
+
     // Libraries
     using Address for address payable;
 

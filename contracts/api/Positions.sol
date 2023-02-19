@@ -26,6 +26,7 @@ import '../utils/Roles.sol';
  *         decrease positions, close positions, add/remove margin
  */
 contract Positions is Roles {
+
     // Constants
     uint256 public constant UNIT = 10 ** 18;
     uint256 public constant BPS_DIVIDER = 10000;
