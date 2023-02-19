@@ -9,14 +9,14 @@ async function main() {
 
   const provider = ethers.provider;
 
-  const [signer, _oracle] = await ethers.getSigners();
+  const [signer] = await ethers.getSigners();
 
   // Account
   const account = await signer.getAddress();
   console.log('Account', account);
 
-  const roleStoreAddress = "0xE1040f058De8C8835cEEBF9d6D1d8c449d989366";
-  const dataStoreAddress = "0x360B0B2b3391FD65D8279E2231C80D9De767ad7b";
+  const roleStoreAddress = "0x685B7A09a0c5aC9D03505eFa078fdD7Ab38c2FaA";
+  const dataStoreAddress = "0xe9d3C9bB9A2047E7467f4770dfA0d62E2a411792";
 
   // Positions
   const Positions = await ethers.getContractFactory("Positions");

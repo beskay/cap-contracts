@@ -1,39 +1,43 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity 0.8.17;
 
-// import 'hardhat/console.sol';
+import '../stores/AssetStore.sol';
+import '../stores/DataStore.sol';
+import '../stores/FundStore.sol';
+import '../stores/PoolStore.sol';
 
-import "../stores/AssetStore.sol";
-import "../stores/DataStore.sol";
-import "../stores/FundStore.sol";
-import "../stores/PoolStore.sol";
+import '../utils/Roles.sol';
 
-import "../utils/Roles.sol";
-
+/**
+ * @title  Pool
+ * @notice Users can deposit supported assets to back trader profits and receive
+ *         a share of trader losses. Each asset pool is siloed, e.g. the ETH
+ *         pool is independent from the USDC pool.
+ */
 contract Pool is Roles {
+    // Constants
+    uint256 public constant BPS_DIVIDER = 10000;
 
-	uint256 public constant UNIT = 10**18;
-	uint256 public constant BPS_DIVIDER = 10000;
-
-	event PoolDeposit(
-        address indexed user, 
+    // Events
+    event PoolDeposit(
+        address indexed user,
         address indexed asset,
-        uint256 amount, 
+        uint256 amount,
         uint256 clpAmount,
         uint256 poolBalance
     );
 
     event PoolWithdrawal(
-        address indexed user, 
+        address indexed user,
         address indexed asset,
-        uint256 amount,  
-        uint256 feeAmount,  
+        uint256 amount,
+        uint256 feeAmount,
         uint256 clpAmount,
         uint256 poolBalance
     );
 
     event PoolPayIn(
-    	address indexed user, 
+        address indexed user,
         address indexed asset,
         string market,
         uint256 amount,
@@ -43,7 +47,7 @@ contract Pool is Roles {
     );
 
     event PoolPayOut(
-    	address indexed user,
+        address indexed user,
         address indexed asset,
         string market,
         uint256 amount,
@@ -51,181 +55,167 @@ contract Pool is Roles {
         uint256 bufferBalance
     );
 
+    // Contracts
     DataStore public DS;
 
-	AssetStore public assetStore;
-	FundStore public fundStore;
-	PoolStore public poolStore;
+    AssetStore public assetStore;
+    FundStore public fundStore;
+    PoolStore public poolStore;
 
-	constructor(RoleStore rs, DataStore ds) Roles(rs) {
-		DS = ds;
-	}
+    /// @dev Initializes DataStore address
+    constructor(RoleStore rs, DataStore ds) Roles(rs) {
+        DS = ds;
+    }
 
-	function link() external onlyGov {
-		assetStore = AssetStore(DS.getAddress('AssetStore'));
-		fundStore = FundStore(payable(DS.getAddress('FundStore')));
-		poolStore = PoolStore(DS.getAddress('PoolStore'));
-	}
+    /// @notice Initializes protocol contracts
+    /// @dev Only callable by governance
+    function link() external onlyGov {
+        assetStore = AssetStore(DS.getAddress('AssetStore'));
+        fundStore = FundStore(payable(DS.getAddress('FundStore')));
+        poolStore = PoolStore(DS.getAddress('PoolStore'));
+    }
 
-	// credit trader loss to buffer. also pay pool from buffer amount based on time and payout rate
-	function creditTraderLoss(
-		address user, 
-		address asset, 
-		string memory market,
-		uint256 amount
-	) external onlyContract {
-		
-		poolStore.incrementBufferBalance(asset, amount);
+    /// @notice Credit trader loss to buffer and pay pool from buffer amount based on time and payout rate
+    /// @param user User which incurred trading loss
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param market Market, e.g. "ETH-USD"
+    /// @param amount Amount of trader loss
+    function creditTraderLoss(address user, address asset, string memory market, uint256 amount) external onlyContract {
+        // credit trader loss to buffer
+        poolStore.incrementBufferBalance(asset, amount);
 
-		uint256 lastPaid = poolStore.getLastPaid(asset);
-		uint256 _now = block.timestamp;
+        // local variables
+        uint256 lastPaid = poolStore.getLastPaid(asset);
+        uint256 _now = block.timestamp;
+        uint256 amountToSendPool;
 
-		if (lastPaid == 0) {
-			poolStore.setLastPaid(asset, _now);
-			return;
-		}
+        if (lastPaid == 0) {
+            // during the very first execution, set lastPaid and return
+            poolStore.setLastPaid(asset, _now);
+        } else {
+            // get buffer balance and buffer payout period to calculate amountToSendPool
+            uint256 bufferBalance = poolStore.getBufferBalance(asset);
+            uint256 bufferPayoutPeriod = poolStore.bufferPayoutPeriod();
 
-		uint256 bufferBalance = poolStore.getBufferBalance(asset);
-		uint256 bufferPayoutPeriod = poolStore.bufferPayoutPeriod();
+            // Stream buffer balance progressively into the pool
+            amountToSendPool = (bufferBalance * (block.timestamp - lastPaid)) / bufferPayoutPeriod;
+            if (amountToSendPool > bufferBalance) amountToSendPool = bufferBalance;
 
-		uint256 amountToSendPool = bufferBalance * (block.timestamp - lastPaid) / bufferPayoutPeriod;
-		
-		if (amountToSendPool > bufferBalance) amountToSendPool = bufferBalance;
-		
-		poolStore.incrementBalance(asset, amountToSendPool);
-		poolStore.decrementBufferBalance(asset, amountToSendPool);
-		poolStore.setLastPaid(asset, _now);
+            // update storage
+            poolStore.incrementBalance(asset, amountToSendPool);
+            poolStore.decrementBufferBalance(asset, amountToSendPool);
+            poolStore.setLastPaid(asset, _now);
+        }
 
-		emit PoolPayIn(
-			user,
-			asset,
-			market,
-			amount,
-			amountToSendPool,
-			poolStore.getBalance(asset),
-			poolStore.getBufferBalance(asset)
-		);
+        // emit event
+        emit PoolPayIn(
+            user,
+            asset,
+            market,
+            amount,
+            amountToSendPool,
+            poolStore.getBalance(asset),
+            poolStore.getBufferBalance(asset)
+        );
+    }
 
-	}
+    /// @notice Pay out trader profit, from buffer first then pool if buffer is depleted
+    /// @param user Address to send funds to
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param market Market, e.g. "ETH-USD"
+    /// @param amount Amount of trader profit
+    function debitTraderProfit(
+        address user,
+        address asset,
+        string calldata market,
+        uint256 amount
+    ) external onlyContract {
+        // return if profit = 0
+        if (amount == 0) return;
 
-	// pay out trader win, from buffer first then pool if buffer is depleted
-	function debitTraderProfit(
-		address user, 
-		address asset, 
-		string memory market,
-		uint256 amount
-	) external onlyContract{
+        uint256 bufferBalance = poolStore.getBufferBalance(asset);
 
-		if (amount == 0) return;
-		
-		uint256 bufferBalance = poolStore.getBufferBalance(asset);
+        // decrement buffer balance first
+        poolStore.decrementBufferBalance(asset, amount);
 
-		poolStore.decrementBufferBalance(asset, amount);
+        // if amount is greater than available in the buffer, pay remaining from the pool
+        if (amount > bufferBalance) {
+            uint256 diffToPayFromPool = amount - bufferBalance;
+            uint256 poolBalance = poolStore.getBalance(asset);
+            require(diffToPayFromPool < poolBalance, '!pool-balance');
+            poolStore.decrementBalance(asset, diffToPayFromPool);
+        }
 
-		if (amount > bufferBalance) {
-			uint256 diffToPayFromPool = amount - bufferBalance;
-			uint256 poolBalance = poolStore.getBalance(asset);
-			require(diffToPayFromPool < poolBalance, "!pool-balance");
-			poolStore.decrementBalance(asset, diffToPayFromPool);
-		}
+        // transfer profit out
+        fundStore.transferOut(asset, user, amount);
 
-		fundStore.transferOut(asset, user, amount);		
-		
-		emit PoolPayOut(
-			user,
-			asset,
-			market,
-			amount,
-			poolStore.getBalance(asset),
-			poolStore.getBufferBalance(asset)
-		);
+        // emit event
+        emit PoolPayOut(user, asset, market, amount, poolStore.getBalance(asset), poolStore.getBufferBalance(asset));
+    }
 
-	}
+    /// @notice Deposit 'amount' of 'asset' into the pool
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param amount Amount to be deposited
+    function deposit(address asset, uint256 amount) public payable {
+        require(amount > 0, '!amount');
+        require(assetStore.isSupported(asset), '!asset');
 
-	function deposit(address asset, uint256 amount) public payable {
+        uint256 balance = poolStore.getBalance(asset);
+        address user = msg.sender;
 
-		//console.log(1);
+        // if asset is ETH (address(0)), set amount to msg.value
+        if (asset == address(0)) {
+            amount = msg.value;
+            fundStore.transferIn{value: amount}(asset, user, amount);
+        } else {
+            fundStore.transferIn(asset, user, amount);
+        }
 
-		require(!DS.getBool("areDepositsPaused"), "!paused");
-		//console.log(2);
-		require(amount > 0, "!amount");
-		//console.log(3);
-		require(assetStore.isSupported(asset), "!asset");
-		//console.log(4);
+        // pool share is equal to pool balance of user divided by the total balance
+        uint256 clpSupply = poolStore.getClpSupply(asset);
+        uint256 clpAmount = balance == 0 || clpSupply == 0 ? amount : (amount * clpSupply) / balance;
 
-		uint256 balance = poolStore.getBalance(asset);
+        // increment balances
+        poolStore.incrementUserClpBalance(asset, user, clpAmount);
+        poolStore.incrementBalance(asset, amount);
 
-		//console.log(5);
-		address user = msg.sender;
+        // emit event
+        emit PoolDeposit(user, asset, amount, clpAmount, poolStore.getBalance(asset));
+    }
 
+    /// @notice Withdraw 'amount' of 'asset'
+    /// @param asset Asset address, e.g. address(0) for ETH
+    /// @param amount Amount to be withdrawn
+    function withdraw(address asset, uint256 amount) public {
+        require(amount > BPS_DIVIDER, '!amount');
+        require(assetStore.isSupported(asset), '!asset');
 
-		if (asset == address(0)) {
-			amount = msg.value;
-			fundStore.transferIn{value: amount}(asset, user, amount);
-		} else {
-			fundStore.transferIn(asset, user, amount);
-		}
+        address user = msg.sender;
 
-		//console.log(6);
+        // check pool balance and clp supply
+        uint256 balance = poolStore.getBalance(asset);
+        uint256 clpSupply = poolStore.getClpSupply(asset);
+        require(balance > 0 && clpSupply > 0, '!empty');
 
-		uint256 clpSupply = poolStore.getClpSupply(asset);
-		//console.log(7);
-        uint256 clpAmount = balance == 0 || clpSupply == 0 ? amount : amount * clpSupply / balance;
+        // check user balance
+        uint256 userBalance = poolStore.getUserBalance(asset, user);
+        if (amount > userBalance) amount = userBalance;
 
-        //console.log(8);
-		poolStore.incrementClpSupply(asset, clpAmount);
-		//console.log(9);
-		poolStore.incrementUserClpBalance(asset, user, clpAmount);
-		//console.log(10);
-		poolStore.incrementBalance(asset, amount);
-		//console.log(11);
+        // calculate pool withdrawal fee
+        uint256 feeAmount = (amount * poolStore.getWithdrawalFee(asset)) / BPS_DIVIDER;
+        uint256 amountMinusFee = amount - feeAmount;
 
-		emit PoolDeposit(
-			user,
-			asset,
-			amount,
-			clpAmount,
-			poolStore.getBalance(asset)
-		);
+        // CLP amount
+        uint256 clpAmount = (amount * clpSupply) / balance;
 
-	}
+        // decrement balances
+        poolStore.decrementUserClpBalance(asset, user, clpAmount);
+        poolStore.decrementBalance(asset, amountMinusFee);
 
-	function withdraw(address asset, uint256 amount) public {
+        // transfer funds out
+        fundStore.transferOut(asset, user, amountMinusFee);
 
-		require(!DS.getBool("areWithdrawalsPaused"), "!paused");
-		require(amount > 0, "!amount");
-		require(assetStore.isSupported(asset), "!asset");
-
-		address user = msg.sender;
-
-		uint256 balance = poolStore.getBalance(asset);
-		uint256 clpSupply = poolStore.getClpSupply(asset);
-		require(balance > 0 && clpSupply > 0, "!empty");
-
-		uint256 userBalance = poolStore.getUserBalance(asset, user);
-		if (amount > userBalance) amount = userBalance;
-
-		uint256 feeAmount = amount * poolStore.getWithdrawalFee(asset) / BPS_DIVIDER;
-		uint256 amountMinusFee = amount - feeAmount;
-
-		// CLP amount
-		uint256 clpAmount = amountMinusFee * clpSupply / balance;
-
-		poolStore.decrementClpSupply(asset, clpAmount);
-		poolStore.decrementUserClpBalance(asset, user, clpAmount);
-		poolStore.decrementBalance(asset, amountMinusFee);
-
-		fundStore.transferOut(asset, user, amountMinusFee);
-
-		emit PoolWithdrawal(
-			user,
-			asset,
-			amount,
-			feeAmount,
-			clpAmount,
-			poolStore.getBalance(asset)
-		);
-
-	}
-
+        // emit event
+        emit PoolWithdrawal(user, asset, amount, feeAmount, clpAmount, poolStore.getBalance(asset));
+    }
 }

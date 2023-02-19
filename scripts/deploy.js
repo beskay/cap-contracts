@@ -9,22 +9,21 @@ async function main() {
   console.log('Network', network);
 
   const provider = ethers.provider;
-  const [signer, _oracle] = await ethers.getSigners();
+  const [signer] = await ethers.getSigners();
 
   console.log('Signer', await signer.getAddress());
-  console.log('Oracle', await _oracle.getAddress());
 
-  // Oracle
-  const oracle = {address: await _oracle.getAddress()};
+  // Treasury
+  const treasury = {address: "0x764E7f8798D8193bEd69030AE66eb304968C3F93"}; // on arbitrum
+
+  // Pyth
+  const pyth = {address: "0xff1a0f4744e8582DF1aE09D5611b887B6a12925C"}; // on arbitrum
 
   // CAP
   const cap = {address: '0x031d35296154279dc1984dcd93e392b1f946737b'};
 
   // USDC
   const usdc = {address: '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8'};
-
-  // WBTC
-  const wbtc = {address: '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f'};
 
 
   // CONTRACT DEPLOYMENT //
@@ -103,18 +102,6 @@ async function main() {
   await positionStore.deployed();
   console.log(`PositionStore deployed to ${positionStore.address}.`);
 
-  // RebateStore
-  const RebateStore = await ethers.getContractFactory("RebateStore");
-  const rebateStore = await RebateStore.deploy(roleStore.address, dataStore.address);
-  await rebateStore.deployed();
-  console.log(`RebateStore deployed to ${rebateStore.address}.`);
-
-  // ReferralStore
-  const ReferralStore = await ethers.getContractFactory("ReferralStore");
-  const referralStore = await ReferralStore.deploy(roleStore.address);
-  await referralStore.deployed();
-  console.log(`ReferralStore deployed to ${referralStore.address}.`);
-
   // RiskStore
   const RiskStore = await ethers.getContractFactory("RiskStore");
   const riskStore = await RiskStore.deploy(roleStore.address, dataStore.address);
@@ -177,8 +164,6 @@ async function main() {
   await dataStore.setAddress("OrderStore", orderStore.address, true);
   await dataStore.setAddress("PoolStore", poolStore.address, true);
   await dataStore.setAddress("PositionStore", positionStore.address, true);
-  await dataStore.setAddress("RebateStore", rebateStore.address, true);
-  await dataStore.setAddress("ReferralStore", referralStore.address, true);
   await dataStore.setAddress("RiskStore", riskStore.address, true);
   await dataStore.setAddress("StakingStore", stakingStore.address, true);
   await dataStore.setAddress("Funding", funding.address, true);
@@ -189,9 +174,9 @@ async function main() {
   await dataStore.setAddress("Staking", staking.address, true);
   await dataStore.setAddress("CAP", cap.address, true);
   await dataStore.setAddress("USDC", usdc.address, true);
-  await dataStore.setAddress("WBTC", wbtc.address, true);
   await dataStore.setAddress("Chainlink", chainlink.address, true);
-  await dataStore.setAddress("oracle", oracle.address, true);
+  await dataStore.setAddress("Pyth", pyth.address, true);
+  await dataStore.setAddress("treasury", treasury.address, true);
   console.log(`Data addresses configured.`);
 
   // Link
@@ -205,21 +190,17 @@ async function main() {
 
   // Grant roles
   const CONTRACT_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("CONTRACT"));
-  const ORACLE_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ORACLE"));
   await roleStore.grantRole(funding.address, CONTRACT_ROLE);
   await roleStore.grantRole(orders.address, CONTRACT_ROLE);
   await roleStore.grantRole(pool.address, CONTRACT_ROLE);
   await roleStore.grantRole(positions.address, CONTRACT_ROLE);
   await roleStore.grantRole(processor.address, CONTRACT_ROLE);
   await roleStore.grantRole(staking.address, CONTRACT_ROLE);
-  await roleStore.grantRole(oracle.address, CONTRACT_ROLE); // oracle also trusted to execute eg closeMarkets
-  await roleStore.grantRole(oracle.address, ORACLE_ROLE); // oracle also trusted to execute eg closeMarkets
   console.log(`Roles configured.`);
 
   // Currencies
   await assetStore.set(ADDRESS_ZERO, {minSize: ethers.utils.parseEther("0.01"), chainlinkFeed: chainlinkFeeds['ETH']});
   await assetStore.set(usdc.address, {minSize: toUnits("10", 6), chainlinkFeed: chainlinkFeeds['USDC']});
-  await assetStore.set(wbtc.address, {minSize: ethers.utils.parseEther("0.001"), chainlinkFeed: chainlinkFeeds['BTC']});
   console.log(`Assets configured.`);
 
   // Markets

@@ -16,17 +16,12 @@ async function main() {
   const account = await signer.getAddress();
   console.log('Account', account);
 
-  // TODO: update marketstore contract to accept empty chainlink
-  const marketStore = await (await ethers.getContractFactory("MarketStore")).attach("0x4C933a69eB6D2988b52873Daf8aC952326Dfa415");
+  const dataStoreAddress = "0xe9d3C9bB9A2047E7467f4770dfA0d62E2a411792";
+  const dataStore = await (await ethers.getContractFactory("DataStore")).attach(dataStoreAddress);
 
-  const marketsToAdd = MARKETS;
-
-  for (const id in marketsToAdd) {
-    const _market = marketsToAdd[id];
-    await marketStore.set(id, _market);
-    console.log('Added ', id);
-  }
-
+  await dataStore.setAddress("treasury", "0x764E7f8798D8193bEd69030AE66eb304968C3F93", true);
+  console.log("Treasury set");
+  
 }
 
 // We recommend this pattern to be able to use async/await everywhere

@@ -16,15 +16,17 @@ async function main() {
   const account = await signer.getAddress();
   console.log('Account', account);
 
-  // TODO: update marketstore contract to accept empty chainlink
-  const marketStore = await (await ethers.getContractFactory("MarketStore")).attach("0x4C933a69eB6D2988b52873Daf8aC952326Dfa415");
+  const dataStoreAddress = "0xe9d3C9bB9A2047E7467f4770dfA0d62E2a411792";
+  const dataStore = await (await ethers.getContractFactory("DataStore")).attach(dataStoreAddress);
 
-  const marketsToAdd = MARKETS;
+  const marketStore = await (await ethers.getContractFactory("MarketStore")).attach(await dataStore.getAddress("MarketStore"));
 
-  for (const id in marketsToAdd) {
-    const _market = marketsToAdd[id];
+  const marketsToUpdate = MARKETS;
+
+  for (const id in marketsToUpdate) {
+    const _market = marketsToUpdate[id];
     await marketStore.set(id, _market);
-    console.log('Added ', id);
+    console.log('Updated ', id);
   }
 
 }
