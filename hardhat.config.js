@@ -29,14 +29,33 @@ module.exports = {
     //   url: 'https://rinkeby.arbitrum.io/rpc',
     //   accounts: [process.env.RINKEBY_PKEY]
     // },
-    arbitrum: {
-      url: 'https://arb1.arbitrum.io/rpc',
-      accounts: [process.env.ARBITRUM_PKEY],
-    },
+    // arbitrum: {
+    //   url: 'https://arb1.arbitrum.io/rpc',
+    //   accounts: [process.env.ARBITRUM_PKEY],
+    // },
     // avalanche: {
     //   url: 'https://api.avax.network/ext/bc/C/rpc',
     //   accounts: [process.env.AVALANCHE_PKEY]
-    // }
+    // },
+    'base-goerli': {
+      url: 'https://goerli.base.org',
+      accounts: [process.env.BASE_PKEY],
+    },
+  },
+  etherscan: {
+    apiKey: {
+      'base-goerli': 'abc', // Any string will work
+    },
+    customChains: [
+      {
+        network: 'base-goerli',
+        chainId: 84531,
+        urls: {
+          apiURL: 'https://goerli.basescan.org/api',
+          browserURL: 'https://goerli.basescan.org/',
+        },
+      },
+    ],
   },
   solidity: {
     compilers: [
