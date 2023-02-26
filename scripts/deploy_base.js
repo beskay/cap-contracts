@@ -13,13 +13,13 @@ async function main() {
   console.log('Signer', await signer.getAddress());
 
   // Treasury
-  const treasury = { address: '0x764E7f8798D8193bEd69030AE66eb304968C3F93' }; // same address as on arbitrum!
+  const treasury = { address: '0x87D89Ee4ac980B61989588780C33A9E174F117B7' };
 
   // Pyth
   const pyth = { address: '0x5955C1478F0dAD753C7E2B4dD1b4bC530C64749f' };
 
   // CAP is not supported yet
-  // const cap = { address: 'CAP_ADDRESS' };
+  const cap = { address: '0x031d35296154279dc1984dcd93e392b1f946737b' };
 
   // USDC is not supported yet
   // const usdc = { address: 'USDC_ADDRESS' };
@@ -50,11 +50,11 @@ async function main() {
 
   console.log('--------');
 
-  // No Chainlink support yet
-  // const Chainlink = await ethers.getContractFactory('Chainlink');
-  // const chainlink = await Chainlink.deploy();
-  // await chainlink.deployed();
-  // console.log(`Chainlink deployed to ${chainlink.address}.`);
+  // Chainlink
+  const Chainlink = await ethers.getContractFactory('ChainlinkBase');
+  const chainlink = await Chainlink.deploy();
+  await chainlink.deployed();
+  console.log(`Chainlink deployed to ${chainlink.address}.`);
 
   // console.log('--------');
 
@@ -107,10 +107,10 @@ async function main() {
   console.log(`RiskStore deployed to ${riskStore.address}.`);
 
   // StakingStore
-  // const StakingStore = await ethers.getContractFactory('StakingStore');
-  // const stakingStore = await StakingStore.deploy(roleStore.address);
-  // await stakingStore.deployed();
-  // console.log(`StakingStore deployed to ${stakingStore.address}.`);
+  const StakingStore = await ethers.getContractFactory('StakingStore');
+  const stakingStore = await StakingStore.deploy(roleStore.address);
+  await stakingStore.deployed();
+  console.log(`StakingStore deployed to ${stakingStore.address}.`);
 
   // Handlers
 
@@ -145,10 +145,10 @@ async function main() {
   console.log(`Processor deployed to ${processor.address}.`);
 
   // Staking
-  // const Staking = await ethers.getContractFactory('Staking');
-  // const staking = await Staking.deploy(roleStore.address, dataStore.address);
-  // await staking.deployed();
-  // console.log(`Staking deployed to ${staking.address}.`);
+  const Staking = await ethers.getContractFactory('Staking');
+  const staking = await Staking.deploy(roleStore.address, dataStore.address);
+  await staking.deployed();
+  console.log(`Staking deployed to ${staking.address}.`);
 
   // CONTRACT SETUP //
 
@@ -163,16 +163,16 @@ async function main() {
   await dataStore.setAddress('PoolStore', poolStore.address, true);
   await dataStore.setAddress('PositionStore', positionStore.address, true);
   await dataStore.setAddress('RiskStore', riskStore.address, true);
-  //await dataStore.setAddress('StakingStore', stakingStore.address, true);
+  await dataStore.setAddress('StakingStore', stakingStore.address, true);
   await dataStore.setAddress('Funding', funding.address, true);
   await dataStore.setAddress('Orders', orders.address, true);
   await dataStore.setAddress('Pool', pool.address, true);
   await dataStore.setAddress('Positions', positions.address, true);
   await dataStore.setAddress('Processor', processor.address, true);
-  //await dataStore.setAddress('Staking', staking.address, true);
-  //await dataStore.setAddress('CAP', cap.address, true);
+  await dataStore.setAddress('Staking', staking.address, true);
+  await dataStore.setAddress('CAP', cap.address, true);
   //await dataStore.setAddress('USDC', usdc.address, true);
-  //await dataStore.setAddress('Chainlink', chainlink.address, true);
+  await dataStore.setAddress('Chainlink', chainlink.address, true);
   await dataStore.setAddress('Pyth', pyth.address, true);
   await dataStore.setAddress('treasury', treasury.address, true);
   console.log(`Data addresses configured.`);
@@ -183,7 +183,7 @@ async function main() {
   await pool.link();
   await positions.link();
   await processor.link();
-  //await staking.link();
+  await staking.link();
   console.log(`Contracts linked.`);
 
   // Grant roles
@@ -193,7 +193,7 @@ async function main() {
   await roleStore.grantRole(pool.address, CONTRACT_ROLE);
   await roleStore.grantRole(positions.address, CONTRACT_ROLE);
   await roleStore.grantRole(processor.address, CONTRACT_ROLE);
-  //await roleStore.grantRole(staking.address, CONTRACT_ROLE);
+  await roleStore.grantRole(staking.address, CONTRACT_ROLE);
   console.log(`Roles configured.`);
 
   // Currencies
